@@ -9,15 +9,22 @@
 
 #include <libint2.hpp>
 
+using namespace libint2;
+
+
 class HartreeFockSolver{
 public:
-	HartreeFockSolver();
+	struct HFParams{
 
-	HFResults RestrictedHF(std::vector<Atom> ats, BasisSet bs);
-public:
+	};
+
 	struct HFResults{
 		char result[100];
 	};
+public:
+	HartreeFockSolver();
+
+	HartreeFockSolver::HFResults RestrictedHF(std::vector<Atom> ats, BasisSet bs);
 private:
 };
 
