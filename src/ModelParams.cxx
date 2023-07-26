@@ -28,7 +28,7 @@ ModelParams::ModelParams(){
 		{"SPHERICAL",false},{"SLATER51",false},{"KLI",false},{"AC",false},{"POLAR",false},
 		{"POLARX",true},{"POLARY",true},{"POLARZ",true},{"SOS",false},{"RELATIVITY",false},
 		{"SINANOGLU",false}};
-	std::cout << iparams.size() + dparams.size() + cparams.size() + lparams.size() << std::endl;
+	//std::cout << iparams.size() + dparams.size() + cparams.size() + lparams.size() << std::endl;
 }
 
 int ModelParams::ReadInputFile(std::istream & in){
@@ -55,7 +55,7 @@ int ModelParams::ReadInputFile(std::istream & in){
 		
 		L=0;
 		if(inputline=="GEOMETRY"){
-			std::cout << "READING GEOMETRY\n";
+			//std::cout << "READING GEOMETRY\n";
 			NSYMM=0;
 			std::string a,x,y,z;
 
@@ -99,6 +99,9 @@ int ModelParams::ReadInputFile(std::istream & in){
 				type = 1;
 			}
 			else if(dparams.find(inputline)!=dparams.end()){
+				for(auto & c: vstr){
+					if(c=='D') c='E';
+				}
 				dparams[inputline]=std::stod(vstr);
 				type=2;
 			}
@@ -111,7 +114,7 @@ int ModelParams::ReadInputFile(std::istream & in){
 				type=4;
 			}
 
-			std::cout << type << ": " << inputline << "=" << vstr<<std::endl;
+			//std::cout << type << ": " << inputline << "=" << vstr<<std::endl;
 			if(type == 0){
 				std::cout << "PARAM NOT FOUND: " << inputline << std::endl;
 			}

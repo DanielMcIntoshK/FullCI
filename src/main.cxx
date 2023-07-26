@@ -8,24 +8,52 @@
 int main(int argc, char** argv){
 	libint2::initialize();
 	
-	std::ifstream inFile("../inputs/BH_sto3g");
+	if(argc < 2) {std::cout << "NEEDS AN INPUT FILE\n";return -1;}
+
+	std::string inputfilename=argv[1];
+
+	std::ifstream inFile(inputfilename);
+	//std::ifstream inFile("../inputs/Benzene_sto3g");
 	if(!inFile) {std::cout << "FILE DOES NOT EXIST\n"; return -1;}
 	
+	std::cout << "LOADING PARAMETERS FROM INPUT FILE\n";
 	ModelParams params;
 	params.ReadInputFile(inFile);
 	inFile.close();
 
+	std::cout << "MOLECULAR GEOMETRY\n";
+	for(auto at: params.atoms) {
+		std::cout << at.atomic_number << ": " << at.x << " " << at.y << " " << at.z << std::endl;
+	}
+
+	std::cout << "LOADING BASIS SET: " << params.cparams["BASISSET"] << std::endl;
 	BasisBuilder bb;
 	std::string basissetdir = "../basisset/";
 	bb.Build(basissetdir+params.cparams["BASISSET"], params);
-	std::cout << "Orbital Basis Set Rank = " << bb.bs.nbf() << std::endl;
+	//std::cout << "Orbital Basis Set Rank = " << bb.bs.nbf() << std::endl;
 	inFile.close();
 
-	HartreeFockSolver hfs;
-	//HartreeFockSolver::HFResults hfr = hfs.RestrictedHF(std::vector<Atom>(), BasisSet());
-	//std::cout << hfr <<std::endl;
+	/*BasisSet bstest("sto-3g", params.atoms);
+	std::cout << bstest.nbf() << std::endl;
+	for(int i = 0; i < bstest.size();i++){
+		libint2::Shell sh = bstest[i];
+		libint2::Shell sh2= bb.bs[i];
+		std::cout << "SHELL" << i << std::endl;
+		for(int j=0; j < sh.alpha.size(); j++){
+			std::cout << sh.alpha[j] << " " << sh.contr[0].coeff[j]<< " " << sh2.alpha[j] << " " << sh2.contr[0].coeff[j] <<std::endl;
+		}
+		std::cout << std::endl;
+	}*/
 
-	std::cout << "HELLO WORLD!\n";
+	std::cout << "RUNNING RESTRICTED HF" << std::endl;
+	HartreeFockSolver hfs;
+	HartreeFockSolver::HFResults hfr = hfs.RestrictedHF(params, bb.bs);
+	//HartreeFockSolver::HFResults hfr = hfs.RestrictedHF(params,bstest);
+
+	std::cout << "HARTREE FOCK ENERGY: " << hfr.eelec << std::endl;
+	std::cout << "NUCELAR REPULSE:     " << hfr.enuc << std::endl;
+	std::cout << "TOTAL ENERGY:        " << hfr.eelec+hfr.enuc << std::endl;
+
 	libint2::finalize();
 
 	return 0;

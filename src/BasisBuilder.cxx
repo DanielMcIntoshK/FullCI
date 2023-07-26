@@ -32,7 +32,7 @@ int BasisBuilder::Build(std::string filename, ModelParams & params){
 		}
 	}
 	elementBasis.resize(maxElement+1);
-	
+	in.close();
 	in=std::ifstream(filename);
 
 	int curElement=0;
@@ -79,7 +79,7 @@ int BasisBuilder::Build(std::string filename, ModelParams & params){
 		}
 	}
 	bs = libint2::BasisSet(atoms,elementBasis,params.cparams["BASISSET"],true);
-
+	in.close();
 	/*
 	std::vector<libint2::Shell> shells;
 	for(auto & at: atoms){
