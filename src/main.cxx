@@ -1,9 +1,12 @@
 #include <iostream>
 #include <fstream>
+#include <algorithm>
+#include <list>
 
 #include "HartreeFockSolver.h"
 #include "ModelParams.h"
 #include "BasisBuilder.h"
+#include "Integrals.h"
 
 int main(int argc, char** argv){
 	libint2::initialize();
@@ -45,14 +48,27 @@ int main(int argc, char** argv){
 		std::cout << std::endl;
 	}*/
 
+	std::cout << "PRELOADING INTEGRALS" << std::endl;
+	IntegralChugger ic(bb.bs,params);
+	ic.compute(IntegralChugger::ALL);
+
 	std::cout << "RUNNING RESTRICTED HF" << std::endl;
 	HartreeFockSolver hfs;
-	HartreeFockSolver::HFResults hfr = hfs.RestrictedHF(params, bb.bs);
+	HartreeFockSolver::HFResults hfr = hfs.RestrictedHF(params, bb.bs,ic);
 	//HartreeFockSolver::HFResults hfr = hfs.RestrictedHF(params,bstest);
 
 	std::cout << "HARTREE FOCK ENERGY: " << hfr.eelec << std::endl;
 	std::cout << "NUCELAR REPULSE:     " << hfr.enuc << std::endl;
 	std::cout << "TOTAL ENERGY:        " << hfr.eelec+hfr.enuc << std::endl;
+
+
+	std::list<int> testvec{1,2,3,4,5};
+	do{
+		for(auto a = testvec.begin(); a != testvec.end(); a++){
+			std::cout << *a << " ";
+		}	
+		std::cout << std::endl;
+	}while(std::next_permutation(++testvec.begin(), testvec.end()));
 
 	libint2::finalize();
 

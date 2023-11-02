@@ -7,7 +7,7 @@ HartreeFockSolver::HartreeFockSolver(){
 
 }
 
-HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & params, BasisSet & bs){
+HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & params, BasisSet & bs, IntegralChugger & ic){
 	HartreeFockSolver::HFResults results;
 	
 	nelectron = 0;
@@ -27,10 +27,15 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	}
 	results.enuc=nucrepulse;
 	
+	/*
 	std::cout << "COMPUTING 1 BODY INTEGRALS" << std::endl;
 	Matrix S = compute1eints(params,bs,Operator::overlap);
 	Matrix T = compute1eints(params,bs,Operator::kinetic);
 	Matrix V = compute1eints(params,bs,Operator::nuclear);
+	*/
+	Matrix S = ic.S;
+	Matrix T = ic.T;
+	Matrix V = ic.V;
 
 	std::cout << "CALCULATING TRANSFORM MATRIX X" << std::endl;
 	Eigen::SelfAdjointEigenSolver<Matrix> eig_solver(S);
@@ -49,16 +54,18 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	std::cout << "MAKING INITIAL DENSITY GUESS" << std::endl;
 	Matrix D = initialDGuess(params,H,S);
 
+	/*
 	std::cout << "COMPUTING 2 BODY INTEGRALS" << std::endl;
 	//compute2eints(bs);
 	compute2eints(bs);
+	*/
+	
 	std::cout << "BEGINING SCF LOOP" << std::endl;
 
-	int nao = 0;
-	for(int s = 0; s < bs.size();++s) nao+=bs[s].size();
+	int nao = bs.nbf();
+	//for(int s = 0; s < bs.size();++s) nao+=bs[s].size();
 
-	int maxiter= params.iparams["SCFCYCLES"];
-	maxiter=1000;
+	int maxiter=params.iparams["SCFCYCLES"];
 	double scfconv=params.dparams["SCFCONV"];
 	int iter = 0;
 	double rmsd = 0.0;
@@ -66,6 +73,8 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	double ehf = 0.0;
 	
 	Matrix C;
+	Matrix G;
+	MatVec E;
 
 	do{
 		if(++iter > maxiter){
@@ -76,7 +85,8 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 		double ehf_last = ehf;
 		Matrix D_last = D;
 
-		Matrix F = H+computeGMatrix(D);
+		G = computeGMatrix(D,ic);
+		Matrix F = H+G;
 
 		//F+= computeGMatrix(D);
 
@@ -86,7 +96,7 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 		//Eigen::GeneralizedEigenSolver<Matrix> gen_eig_solver(F,S);
 		Eigen::SelfAdjointEigenSolver<Matrix> eig_solver(Fx);
 
-		auto eps = eig_solver.eigenvalues();
+		E = eig_solver.eigenvalues();
 		Matrix Cx = eig_solver.eigenvectors();
 		
 		C=X*Cx;
@@ -119,10 +129,13 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	results.eelec = ehf;
 	results.C = C;
 	results.D = D;
+	results.E = E;
+	results.G = G;
 	
 	return results;
 }
 
+/*
 Matrix HartreeFockSolver::compute1eints(ModelParams & param, BasisSet & bs, libint2::Operator obtype){
 	using libint2::Shell;
 	using libint2::Engine;
@@ -226,13 +239,13 @@ void HartreeFockSolver::compute2eints(BasisSet & bs){
 					int bf4=f4+bf4_first;
 						std::array<int,4> co=get2bodyintcord(bf1,bf2,bf3,bf4);
 						
-						/*int a=bf1, b=bf2, c=bf3, d=bf4;
+						int a=bf1, b=bf2, c=bf3, d=bf4;
 						if(b>a)std::swap(a,b);
 						if(d>c)std::swap(c,d);
 						if(c>a){std::swap(c,a);std::swap(d,b);}
 						if(a==c&&d>b){std::swap(a,c);std::swap(b,d);}
 						else if(d>c){std::swap(c,d);}
-						*/
+						
 						//std::cout << "Computing ("<<bf1<<bf2<<"|"<<bf3<<bf4<<")"<<std::endl;
 						double value=buf_1234[f1234];
 						twobodyints[co[0]][co[1]][co[2]][co[3]]=value;
@@ -310,13 +323,13 @@ void HartreeFockSolver::compute2eints_crappy(BasisSet & bs){
 					int bf4=f4+bf4_first;
 						//std::array<int,4> co=get2bodyintcord(bf1,bf2,bf3,bf4);
 						
-						/*int a=bf1, b=bf2, c=bf3, d=bf4;
+						int a=bf1, b=bf2, c=bf3, d=bf4;
 						if(b>a)std::swap(a,b);
 						if(d>c)std::swap(c,d);
 						if(c>a){std::swap(c,a);std::swap(d,b);}
 						if(a==c&&d>b){std::swap(a,c);std::swap(b,d);}
 						else if(d>c){std::swap(c,d);}
-						*/
+						
 						//std::cout << "Computing ("<<bf1<<bf2<<"|"<<bf3<<bf4<<")"<<std::endl;
 						double value=buf_1234[f1234];
 						//twobodyints[co[0]][co[1]][co[2]][co[3]]=value;
@@ -346,9 +359,10 @@ void HartreeFockSolver::compute2eints_crappy(BasisSet & bs){
 		}
 	}
 }
+*/
 
-Matrix HartreeFockSolver::computeGMatrix(Matrix & D){
-	int n = twobodyints.size();
+Matrix HartreeFockSolver::computeGMatrix(Matrix & D,IntegralChugger &ic){
+	int n = ic.tbi.size();
 
 	Matrix G = Matrix::Zero(n,n);
 	/*
@@ -375,11 +389,14 @@ Matrix HartreeFockSolver::computeGMatrix(Matrix & D){
 		for(int j = 0; j < n; j++){
 			for(int s= 0; s < n; s++){
 				for(int r = 0; r < n; r++){
-					auto c1 = get2bodyintcord(i,j,r,s);
-					auto c2 = get2bodyintcord(i,s,r,j);
+					//auto c1 = get2bodyintcord(i,j,r,s);
+					//auto c2 = get2bodyintcord(i,s,r,j);
 
-					double J=twobodyints[c1[0]][c1[1]][c1[2]][c1[3]];
-					double K=twobodyints[c2[0]][c2[1]][c2[2]][c2[3]];
+					//double J=twobodyints[c1[0]][c1[1]][c1[2]][c1[3]];
+					//double K=twobodyints[c2[0]][c2[1]][c2[2]][c2[3]];
+
+					double J = ic(i,j,r,s);
+					double K = ic(i,s,r,j);
 
 					//double J=twobodyints[i][j][r][s];
 					//double K=twobodyints[i][s][r][j];
@@ -436,6 +453,7 @@ Matrix HartreeFockSolver::initialDGuess(ModelParams & param, Matrix & H, Matrix 
 	return D;
 }
 
+/*
 std::array<int,4> HartreeFockSolver::get2bodyintcord(int a, int b, int c, int d){
 	//std::cout << a << " " << b << " " << c <<" " << d << " TO ";
 	if(b>a)std::swap(a,b);
@@ -447,3 +465,4 @@ std::array<int,4> HartreeFockSolver::get2bodyintcord(int a, int b, int c, int d)
 
 	return std::array<int,4>{a,b,c,d};
 }
+*/

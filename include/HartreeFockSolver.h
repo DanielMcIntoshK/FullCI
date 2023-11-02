@@ -11,46 +11,45 @@
 #include <libint2.hpp>
 
 #include "ModelParams.h"
+#include "Integrals.h"
 
 using namespace libint2;
 
 
-typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Matrix;
-
-typedef std::vector<std::vector<std::vector<std::vector<double>>>> twobodylist;
-
-typedef std::vector<std::vector<std::vector<std::vector<bool>>>> checklist;
-
+//Exactly what it says on the tin
+//Class used for solving Hartree Fock
 class HartreeFockSolver{
 public:
-	struct HFParams{
-
-	};
-
 	struct HFResults{
+		//The electic energy of the hartree fock ground state
 		double eelec;
+		//The energy associated with nuclear repulsion
 		double enuc;
+
+		//The coeficent matrix, density matrix, the most recently calculated fock matrix - hamiltonian(used for MBPT), and eigenvalues of fock matrix of last iteration
 		Matrix C;
 		Matrix D;
+		Matrix G;
+		MatVec E;
 	};
 public:
 	HartreeFockSolver();
 
-	HartreeFockSolver::HFResults RestrictedHF(ModelParams & param, BasisSet & bs);
+	//Runs A SCF iterative method to minimize 
+	HartreeFockSolver::HFResults RestrictedHF(ModelParams & param, BasisSet & bs, IntegralChugger & ic);
 private:
-	Matrix compute1eints(ModelParams & param, BasisSet & bs, libint2::Operator obtype);
-	void compute2eints(BasisSet &bs);
-	void compute2eints_crappy(BasisSet& bs);
-	Matrix computeGMatrix(Matrix & D);
+	//Takes a density matrix and comptues the G matrix where G=F-H where F is the Fock matrix
+	//and H is the core hamiltonian matrix
+	Matrix computeGMatrix(Matrix & D, IntegralChugger & ic);
 	
+	//This makes an initial Guess for the density matrix
+	//(At the moment probably more complicated than it nees to be
 	Matrix initialDGuess(ModelParams & param,Matrix & H, Matrix &S); 
-
-	std::array<int,4> get2bodyintcord(int a, int b, int c, int d);
-
-	twobodylist twobodyints;
 
 	int nelectron;
 };
+
+typedef HartreeFockSolver::HFResults hfresults;
 
 #endif
 
