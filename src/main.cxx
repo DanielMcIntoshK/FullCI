@@ -4,26 +4,14 @@
 #include <list>
 #include <cmath>
 
-/*
 #include "HartreeFockSolver.h"
 #include "ModelParams.h"
 #include "BasisBuilder.h"
 #include "Integrals.h"
-*/
-#include "SlaterDet.h"
+#include "FCI.h" 
 
 int main(int argc, char** argv){
-	SlaterDet::buildStrings(10,5,252);
-
-	std::cout << SlaterDet::codes.strs.size() << std::endl;
-	SlaterDet::printStrings();
-
-	SlaterDet s1(0,0),s2(0,251);
-	auto diff(s1|s2);
-	std::cout << diff.size() << std::endl;
-	for(auto a: diff){std::cout << a << " ";}
-	std::cout << std::endl;
-	/*libint2::initialize();
+	libint2::initialize();
 	
 	if(argc < 2) {std::cout << "NEEDS AN INPUT FILE\n";return -1;}
 
@@ -50,7 +38,7 @@ int main(int argc, char** argv){
 	//std::cout << "Orbital Basis Set Rank = " << bb.bs.nbf() << std::endl;
 	inFile.close();
 
-	/BasisSet bstest("sto-3g", params.atoms);
+	/*BasisSet bstest("sto-3g", params.atoms);
 	std::cout << bstest.nbf() << std::endl;
 	for(int i = 0; i < bstest.size();i++){
 		libint2::Shell sh = bstest[i];
@@ -60,7 +48,7 @@ int main(int argc, char** argv){
 			std::cout << sh.alpha[j] << " " << sh.contr[0].coeff[j]<< " " << sh2.alpha[j] << " " << sh2.contr[0].coeff[j] <<std::endl;
 		}
 		std::cout << std::endl;
-	}/
+	}*/
 
 	std::cout << "PRELOADING INTEGRALS" << std::endl;
 	IntegralChugger ic(bb.bs,params);
@@ -75,17 +63,12 @@ int main(int argc, char** argv){
 	std::cout << "NUCELAR REPULSE:     " << hfr.enuc << std::endl;
 	std::cout << "TOTAL ENERGY:        " << hfr.eelec+hfr.enuc << std::endl;
 
-
-	std::list<int> testvec{1,2,3,4,5};
-	do{
-		for(auto a = testvec.begin(); a != testvec.end(); a++){
-			std::cout << *a << " ";
-		}	
-		std::cout << std::endl;
-	}while(std::next_permutation(++testvec.begin(), testvec.end()));
+	FullCISolver fcis;
+	fcis.fci(params,ic,hfr);
+	//fcis.cleanup();
 
 	libint2::finalize();
 
-	*/
+
 	return 0;
 }

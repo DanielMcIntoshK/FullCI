@@ -122,6 +122,10 @@ int ModelParams::ReadInputFile(std::istream & in){
 		
 	}while(!in.eof());
 	
+	nelec=0;
+	for(auto &a: atoms) nelec+=a.atomic_number;
+	nelec-=iparams["CHARGE"];
+
 	return 0;
 }
 

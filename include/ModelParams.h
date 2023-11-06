@@ -15,7 +15,8 @@ public:
 	std::map<std::string, bool>        lparams;
 
 	std::vector<libint2::Atom> atoms;
-	
+	int nelec;
+
 	int ReadInputFile(std::istream & in);
 };
 

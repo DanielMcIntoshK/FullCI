@@ -48,6 +48,8 @@ public:
 	//Nicer way of grabbing two body integrals
 	//Makes everything a little prettier
 	double operator() (int a, int b, int c, int d){return tbv(a,b,c,d);}
+	double tbv(int a, int b, int c, int d);
+	double mov(int a, int b, int c, int d);
 
 	void TransformInts(Matrix & C);
 
@@ -57,6 +59,8 @@ public:
 	Matrix S;
 	Matrix T;
 	Matrix V;
+
+	Matrix MOT;
 
 	//The 4D list of 2body integrals
 	twobodylist tbi;
@@ -69,8 +73,6 @@ private:
 	void compute2eints();
 
 	std::array<int,4> get2bodyintcord(int a, int b, int c, int d);
-	double tbv(int a, int b, int c, int d);
-	double mov(int a, int b, int c, int d);
 
 	void partialtransform(Matrix & C, int type);
 };

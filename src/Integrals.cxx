@@ -251,6 +251,19 @@ void IntegralChugger::TransformInts(Matrix & C){
 		partialtransform(C,t);
 	}
 
+	MOT=Matrix(T.rows(),T.cols());
+	for(int r = 0; r < MOT.rows(); r++){
+		for(int c=0; c<MOT.cols();c++){
+			double sum =0.0;
+			for(int c1=0;c1<C.rows();c1++){
+				for(int c2=0; c2<C.rows();c2++){
+					sum+=C(r,c1)*C(c,c2)*T(c1,c2);
+				}
+			}
+			MOT(r,c)=sum;
+		}
+	}
+
 }
 
 void IntegralChugger::partialtransform(Matrix & C, int type){
