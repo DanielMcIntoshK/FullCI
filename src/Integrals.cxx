@@ -1,4 +1,5 @@
 #include "Integrals.h"
+#include <libint2.hpp>
 
 IntegralChugger::IntegralChugger(BasisSet bs, ModelParams mp):basis{bs}, params{mp}{
 

@@ -2,6 +2,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <libint2.hpp>
 
 BasisBuilder::BasisBuilder(){
 

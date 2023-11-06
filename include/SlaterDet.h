@@ -2,26 +2,24 @@
 #define SLATERDET__H_
 #include <vector>
 
+struct StringMap{
+	std::vector<unsigned char*> strs;
+	int codeblklen;
+};
+
 class SlaterDet{
 public:
-	SlaterDet(int norb, int nelec, int excite=0);
+	SlaterDet(int alpidx, int betidx);
 
-	bool Permute();
+	std::vector<int> operator|(const SlaterDet & sd) const;
 
-	void print();
-
-	int operator[](int i){return occupied[i];}
+	static void buildStrings(int norb,int nelec, int strcnt);
+	
+	static void printStrings();
 public:
-	std::vector<int> occupied;
-	int excitationlevel;
+	int aidx,bidx;
 
-	int norbitals;
-	int nelectrons;
-
-	int homo, lumo;
-	int max;
-
-	int top;
+	static StringMap codes;
 };
 
 #endif

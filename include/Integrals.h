@@ -14,6 +14,8 @@
 
 using namespace libint2;
 
+//extern class libint2::Operator;
+
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> Matrix;
 
 typedef std::vector<std::vector<std::vector<std::vector<double>>>> twobodylist;
