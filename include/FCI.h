@@ -15,7 +15,7 @@
 class FullCISolver{
 	public:
 		struct FCIResults{
-
+			Matrix eigenvectors;
 		};
 	public:
 		FullCISolver(){}
@@ -26,7 +26,7 @@ class FullCISolver{
 		double matrixEl(int x, int y);
 
 		double matel1e(std::vector<int> &diff);
-		double matel2e(std::vector<int> &diff);
+		double matel2e(std::vector<int> &diff,bool verbose=false);
 
 		void cleanup();
 	private:

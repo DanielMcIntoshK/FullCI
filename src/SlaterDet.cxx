@@ -50,9 +50,6 @@ std::vector<int> SlaterDet::operator|(const SlaterDet & sd) const{
 
 void SlaterDet::buildStrings(int norb, int nelec){
 
-	for(int i = 0; i < 10; i++){
-		std::cout << "CHOOSETEST: " << rfactorial(i)<< std::endl;
-	}
 	int strcnt=choose(norb,nelec);
 	std::vector<bool> permute;
 	permute.resize(norb);

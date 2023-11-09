@@ -247,14 +247,41 @@ void IntegralChugger::TransformInts(Matrix & C){
 
 	int n = C.rows();
 
+	twobodylist testlist=tbi;
+
+	std::cout << tbi[0][0][0][0] << " " << moi[0][0][0][0]<<std::endl;
+
+	for(int i = 0; i < tbi.size();i++){
+	for(int j = 0; j < tbi[i].size();j++){
+	for(int k = 0; k < tbi[i][j].size();k++){
+	for(int l = 0; l < tbi[i][j][k].size();l++){
+		testlist[i][j][k][l]=0.0;
+		for(int a = 0; a < n; a++){
+			auto cord = get2bodyintcord(i,j,k,a);
+			testlist[i][j][k][l]+=C(a,l)*tbi[cord[0]][cord[1]][cord[2]][cord[3]];	
+		}
+	}}}}
+	//partialtransform(C,0);
+	for(int i = 0; i < tbi.size();i++){
+	for(int j = 0; j < tbi[i].size();j++){
+	for(int k = 0; k < tbi[i][j].size();k++){
+	for(int l = 0; l < tbi[i][j][k].size();l++){
+		if(testlist[i][j][k][l]!=moi[i][j][k][l]) std::cout << "THERE's A PROBLEM: " <<
+			moi[i][j][k][l] << " " << testlist[i][j][k][l]<<std::endl;
+	}}}}
+
+
+	std::cout << testlist[0][0][0][0]<<std::endl;
 	std::cout << "TRANSFORMING 2e ints\n";
 	for(int t = 0; t < 4;t++){
+		std::cout << moi[0][0][0][0]<<std::endl;
 		partialtransform(C,t);
 	}
 
+	MOH=T+V;
+	
 	std::cout << "TRANSFORMING 1e ints\n";
 	Matrix H=T+V;
-	MOH=Matrix(T.rows(),T.cols());
 	for(int r = 0; r < MOH.rows(); r++){
 		for(int c=0; c<MOH.cols();c++){
 			double sum =0.0;
@@ -266,7 +293,6 @@ void IntegralChugger::TransformInts(Matrix & C){
 			MOH(r,c)=sum;
 		}
 	}
-
 }
 
 void IntegralChugger::partialtransform(Matrix & C, int type){
@@ -291,8 +317,9 @@ void IntegralChugger::partialtransform(Matrix & C, int type){
 						default:break;
 						}
 
-						auto cord = get2bodyintcord(ti,tj,tk,tl);
-						translist[i][j][k][l]+=transval*moi[cord[0]][cord[1]][cord[2]][cord[3]];
+						translist[i][j][k][l]+=transval*mov(ti,tj,tk,tl);
+						//auto cord = get2bodyintcord(ti,tj,tk,tl);
+						//translist[i][j][k][l]+=transval*moi[cord[0]][cord[1]][cord[2]][cord[3]];
 					}
 				}
 			}

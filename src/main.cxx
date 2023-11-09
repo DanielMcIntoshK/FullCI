@@ -64,7 +64,10 @@ int main(int argc, char** argv){
 	std::cout << "TOTAL ENERGY:        " << hfr.eelec+hfr.enuc << std::endl;
 
 	FullCISolver fcis;
-	fcis.fci(params,ic,hfr);
+	FullCISolver::FCIResults fcir =fcis.fci(params,ic,hfr);
+
+	std::cout << "MAYBE E: " << fcir.eigenvectors(0,0) +hfr.enuc << std::endl;
+	std::cout << "MAYBE E: " << fcir.eigenvectors(fcir.eigenvectors.rows()-1,0) + hfr.enuc << std::endl;
 	//fcis.cleanup();
 
 	libint2::finalize();

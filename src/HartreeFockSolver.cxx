@@ -365,41 +365,13 @@ Matrix HartreeFockSolver::computeGMatrix(Matrix & D,IntegralChugger &ic){
 	int n = ic.tbi.size();
 
 	Matrix G = Matrix::Zero(n,n);
-	/*
-	for(int a =0; a < twobodyints.size(); a++){
-		for(int b = 0; b < twobodyints[a].size(); b++){
-			for(int c = 0; c < twobodyints[a][b].size(); c++){
-				for(int d =0; d < twobodyints[a][b][c].size(); d++){
-					double ival_deg=twobodyints[a][b][c][d];
-
-					G(a,b) += D(c,d) * ival_deg;
-					G(c,d) += D(a,b) * ival_deg;
-					G(a,c) -= 0.25 * D(b,d) * ival_deg;
-					G(b,d) -= 0.25 * D(a,c) * ival_deg;
-					G(a,d) -= 0.25 * D(b,c) * ival_deg;
-					G(b,c) -= 0.25 * D(a,d) * ival_deg;
-				}
-			}
-		}
-	}
-	Matrix Gt = G.transpose();
-	return 0.5*(G+Gt);
-	*/
 	for(int i = 0; i < n; i++){
 		for(int j = 0; j < n; j++){
 			for(int s= 0; s < n; s++){
 				for(int r = 0; r < n; r++){
-					//auto c1 = get2bodyintcord(i,j,r,s);
-					//auto c2 = get2bodyintcord(i,s,r,j);
-
-					//double J=twobodyints[c1[0]][c1[1]][c1[2]][c1[3]];
-					//double K=twobodyints[c2[0]][c2[1]][c2[2]][c2[3]];
 
 					double J = ic(i,j,r,s);
 					double K = ic(i,s,r,j);
-
-					//double J=twobodyints[i][j][r][s];
-					//double K=twobodyints[i][s][r][j];
 
 					G(i,j)+=D(s,r)*(J-.5*K);
 				}
