@@ -60,7 +60,7 @@ public:
 	Matrix T;
 	Matrix V;
 
-	Matrix MOT;
+	Matrix MOH;
 
 	//The 4D list of 2body integrals
 	twobodylist tbi;

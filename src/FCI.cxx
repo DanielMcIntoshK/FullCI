@@ -4,6 +4,7 @@
 
 FullCISolver::FCIResults FullCISolver::fci(ModelParams & mp, IntegralChugger &ic, HartreeFockSolver::HFResults &hf){
 	ints=&ic;
+	ints->TransformInts(hf.C);
 
 	int N=hf.C.rows();
 	int n=mp.nelec/2;
@@ -37,17 +38,23 @@ double FullCISolver::matrixEl(int r, int c){
 
 	std::vector<int> diff=sd1|sd2;
 
-	return matel1e(diff)+matel2e(diff);
+	double me= matel1e(diff)+matel2e(diff);
+
+	if(r==0 && diff.size()==2){
+		std::cout << diff[0] << " " << diff[1] << std::endl;
+		std::cout << "SINGLE EXCITATION GROUND TEST: " << me << std::endl;
+	}
+	return me;
 }
 
 double FullCISolver::matel1e(std::vector<int> & diff){
 	double val=0.0;
-	switch(diff.size()){
+	switch(diff.size()/2){
 	case 0:
-		for(int i = 0; i < ints->MOT.rows();i++) val+=ints->MOT(i,i);
+		for(int i = 0; i < ints->MOH.rows();i++) val+=ints->MOH(i,i);
 		break;
 	case 1:
-		val=ints->MOT(diff[0],diff[1]);	
+		val=ints->MOH(diff[0],diff[1]);	
 		break;
 	default:
 		val=0.0;
@@ -57,22 +64,22 @@ double FullCISolver::matel1e(std::vector<int> & diff){
 
 double FullCISolver::matel2e(std::vector<int> & diff){
 	double val =0.0;
-	switch(diff.size()){
+	switch(diff.size()/2){
 	case 0:
-		for(int i = 0; i < ints->MOT.rows(); i++){
-			for(int j = 0; j < ints->MOT.rows(); j++){
-				val+=(ints->mov(i,i,j,j)-ints->mov(i,j,j,i));
+		for(int i = 0; i < ints->MOH.rows(); i++){
+			for(int j = 0; j < ints->MOH.rows(); j++){
+				val+=(ints->mov(i,j,i,j)-ints->mov(i,j,j,i));
 			}
 		}
 		val*=.5;
 		break;
 	case 1:
-		for(int i = 0; i < ints->MOT.rows();i++){
-			val+=(ints->mov(diff[0],diff[1],i,i)-ints->mov(diff[0],i,diff[1],i));
+		for(int i = 0; i < ints->MOH.rows();i++){
+			val+=(ints->mov(diff[0],diff[1],i,i)-ints->mov(diff[0],i,i,diff[1]));
 		}
 		break;
 	case 2:
-		val=ints->mov(diff[0],diff[2],diff[1],diff[3])-ints->mov(diff[0],diff[3],diff[1],diff[2]);
+		val=ints->mov(diff[0],diff[1],diff[2],diff[3])-ints->mov(diff[0],diff[1],diff[3],diff[2]);
 		break;
 	default:
 		val=0.0;

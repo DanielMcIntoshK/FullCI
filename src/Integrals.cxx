@@ -247,20 +247,23 @@ void IntegralChugger::TransformInts(Matrix & C){
 
 	int n = C.rows();
 
+	std::cout << "TRANSFORMING 2e ints\n";
 	for(int t = 0; t < 4;t++){
 		partialtransform(C,t);
 	}
 
-	MOT=Matrix(T.rows(),T.cols());
-	for(int r = 0; r < MOT.rows(); r++){
-		for(int c=0; c<MOT.cols();c++){
+	std::cout << "TRANSFORMING 1e ints\n";
+	Matrix H=T+V;
+	MOH=Matrix(T.rows(),T.cols());
+	for(int r = 0; r < MOH.rows(); r++){
+		for(int c=0; c<MOH.cols();c++){
 			double sum =0.0;
-			for(int c1=0;c1<C.rows();c1++){
-				for(int c2=0; c2<C.rows();c2++){
-					sum+=C(r,c1)*C(c,c2)*T(c1,c2);
+			for(int c1=0;c1<n;c1++){
+				for(int c2=0; c2<n;c2++){
+					sum+=C(c1,r)*C(c2,c)*H(c1,c2);
 				}
 			}
-			MOT(r,c)=sum;
+			MOH(r,c)=sum;
 		}
 	}
 
@@ -274,21 +277,22 @@ void IntegralChugger::partialtransform(Matrix & C, int type){
 	for(int i = 0; i < moi.size(); i++){
 		for(int j =0; j < moi[i].size(); j++){
 			for(int k = 0; k < moi[i][j].size(); k++){
-				for(int l = 0; l < moi[i][j][l].size(); l++){
+				for(int l = 0; l < moi[i][j][k].size(); l++){
 					translist[i][j][k][l]=0.0;
 					int ti=i,tj=j,tk=k,tl=l;
 					for(int a = 0; a < n; a++){
 						double transval=0.0;
 						
 						switch(type){
-						case 0: ti=a; transval=C(i,a);break;
-						case 1: tj=a; transval=C(j,a);break;
-						case 2: tk=a; transval=C(k,a);break;
-						case 3: tl=a; transval=C(l,a);break;
+						case 3: ti=a; transval=C(a,i);break;
+						case 2: tj=a; transval=C(a,j);break;
+						case 1: tk=a; transval=C(a,k);break;
+						case 0: tl=a; transval=C(a,l);break;
 						default:break;
 						}
 
-						translist[i][j][k][l]+=transval*moi[ti][tj][tk][tl];
+						auto cord = get2bodyintcord(ti,tj,tk,tl);
+						translist[i][j][k][l]+=transval*moi[cord[0]][cord[1]][cord[2]][cord[3]];
 					}
 				}
 			}
