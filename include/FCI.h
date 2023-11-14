@@ -11,6 +11,7 @@
 #include "ModelParams.h"
 #include "Integrals.h"
 #include "HartreeFockSolver.h"
+#include "SlaterDet.h"
 
 class FullCISolver{
 	public:
@@ -25,8 +26,11 @@ class FullCISolver{
 		void computeHamiltonian();
 		double matrixEl(int x, int y);
 
-		double matel1e(std::vector<int> &diff);
-		double matel2e(std::vector<int> &diff,bool verbose=false);
+		double matel1e(std::vector<int> &diff,std::vector<int> &share);
+		double matel2e(std::vector<int> &diff,std::vector<int> &share,bool verbose=false);
+	
+		double matel1e(SlaterCompare &sc,bool verbose=false);
+		double matel2e(SlaterCompare &sc,bool verbose=false);
 
 		void cleanup();
 	private:

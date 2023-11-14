@@ -245,11 +245,11 @@ double IntegralChugger::mov(int a, int b, int c, int d){
 void IntegralChugger::TransformInts(Matrix & C){
 	moi = tbi;
 
+	
+
 	int n = C.rows();
 
 	twobodylist testlist=tbi;
-
-	std::cout << tbi[0][0][0][0] << " " << moi[0][0][0][0]<<std::endl;
 
 	for(int i = 0; i < tbi.size();i++){
 	for(int j = 0; j < tbi[i].size();j++){
@@ -257,18 +257,14 @@ void IntegralChugger::TransformInts(Matrix & C){
 	for(int l = 0; l < tbi[i][j][k].size();l++){
 		testlist[i][j][k][l]=0.0;
 		for(int a = 0; a < n; a++){
-			auto cord = get2bodyintcord(i,j,k,a);
-			testlist[i][j][k][l]+=C(a,l)*tbi[cord[0]][cord[1]][cord[2]][cord[3]];	
-		}
+		for(int b = 0; b < n; b++){
+		for(int c = 0; c < n; c++){
+		for(int d = 0; d < n; d++){
+			auto cord = get2bodyintcord(a,b,c,d);
+			testlist[i][j][k][l]+=C(a,i)*C(b,j)*C(c,k)*C(d,l)*tbv(a,b,c,d);	
+		}}}}
 	}}}}
 	//partialtransform(C,0);
-	for(int i = 0; i < tbi.size();i++){
-	for(int j = 0; j < tbi[i].size();j++){
-	for(int k = 0; k < tbi[i][j].size();k++){
-	for(int l = 0; l < tbi[i][j][k].size();l++){
-		if(testlist[i][j][k][l]!=moi[i][j][k][l]) std::cout << "THERE's A PROBLEM: " <<
-			moi[i][j][k][l] << " " << testlist[i][j][k][l]<<std::endl;
-	}}}}
 
 
 	std::cout << testlist[0][0][0][0]<<std::endl;
@@ -277,6 +273,16 @@ void IntegralChugger::TransformInts(Matrix & C){
 		std::cout << moi[0][0][0][0]<<std::endl;
 		partialtransform(C,t);
 	}
+	std::cout << moi[0][0][0][0]<<std::endl;
+	for(int i = 0; i < tbi.size();i++){
+	for(int j = 0; j < tbi[i].size();j++){
+	for(int k = 0; k < tbi[i][j].size();k++){
+	for(int l = 0; l < tbi[i][j][k].size();l++){
+		if(testlist[i][j][k][l]!=moi[i][j][k][l]) std::cout << "THERE's A PROBLEM: " <<
+			moi[i][j][k][l] << " " << testlist[i][j][k][l]<<std::endl;
+	}}}}
+
+	moi=testlist;
 
 	MOH=T+V;
 	
@@ -310,16 +316,14 @@ void IntegralChugger::partialtransform(Matrix & C, int type){
 						double transval=0.0;
 						
 						switch(type){
-						case 3: ti=a; transval=C(a,i);break;
-						case 2: tj=a; transval=C(a,j);break;
-						case 1: tk=a; transval=C(a,k);break;
-						case 0: tl=a; transval=C(a,l);break;
+						case 0: ti=a; transval=C(a,i);break;
+						case 1: tj=a; transval=C(a,j);break;
+						case 2: tk=a; transval=C(a,k);break;
+						case 3: tl=a; transval=C(a,l);break;
 						default:break;
 						}
 
 						translist[i][j][k][l]+=transval*mov(ti,tj,tk,tl);
-						//auto cord = get2bodyintcord(ti,tj,tk,tl);
-						//translist[i][j][k][l]+=transval*moi[cord[0]][cord[1]][cord[2]][cord[3]];
 					}
 				}
 			}
