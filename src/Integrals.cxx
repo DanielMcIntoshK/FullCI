@@ -249,44 +249,8 @@ void IntegralChugger::TransformInts(Matrix & C){
 
 	int n = C.rows();
 
-	twobodylist testlist=tbi;
-
-	for(int i = 0; i < tbi.size();i++){
-	for(int j = 0; j < tbi[i].size();j++){
-	for(int k = 0; k < tbi[i][j].size();k++){
-	for(int l = 0; l < tbi[i][j][k].size();l++){
-		testlist[i][j][k][l]=0.0;
-		for(int a = 0; a < n; a++){
-		for(int b = 0; b < n; b++){
-		for(int c = 0; c < n; c++){
-		for(int d = 0; d < n; d++){
-			auto cord = get2bodyintcord(a,b,c,d);
-			testlist[i][j][k][l]+=C(a,i)*C(b,j)*C(c,k)*C(d,l)*tbv(a,b,c,d);	
-		}}}}
-	}}}}
-	//partialtransform(C,0);
-
-
-	std::cout << testlist[0][0][0][0]<<std::endl;
-	std::cout << "TRANSFORMING 2e ints\n";
-	for(int t = 0; t < 4;t++){
-		std::cout << moi[0][0][0][0]<<std::endl;
-		partialtransform(C,t);
-	}
-	std::cout << moi[0][0][0][0]<<std::endl;
-	for(int i = 0; i < tbi.size();i++){
-	for(int j = 0; j < tbi[i].size();j++){
-	for(int k = 0; k < tbi[i][j].size();k++){
-	for(int l = 0; l < tbi[i][j][k].size();l++){
-		if(testlist[i][j][k][l]!=moi[i][j][k][l]) std::cout << "THERE's A PROBLEM: " <<
-			moi[i][j][k][l] << " " << testlist[i][j][k][l]<<std::endl;
-	}}}}
-
-	moi=testlist;
-
-	MOH=T+V;
-	
 	std::cout << "TRANSFORMING 1e ints\n";
+	MOH=T+V;
 	Matrix H=T+V;
 	for(int r = 0; r < MOH.rows(); r++){
 		for(int c=0; c<MOH.cols();c++){
@@ -299,36 +263,77 @@ void IntegralChugger::TransformInts(Matrix & C){
 			MOH(r,c)=sum;
 		}
 	}
+	
+	std::cout << "TRANSFORMING 2e ints\n";
+	twobodylist t1,t2;
+	inittwobodylist(t1,n);
+	inittwobodylist(t2,n);
+	for(int t= 0; t < 4; t++){
+		partialtransform(C,t,(t%2==0)?t1:t2,(t%2==0)?t2:(t==3)?moi:t1);
+	}
+	cleartwobodylist(t1);
+	cleartwobodylist(t2);
 }
 
-void IntegralChugger::partialtransform(Matrix & C, int type){
+void IntegralChugger::partialtransform(Matrix & C, int type,twobodylist & pulllist, twobodylist & addlist){
 	int n = C.rows();
 	
-	twobodylist translist = moi;
+	for(int i = 0; i < addlist.size();i++){
+	for(int j = 0; j < addlist[i].size(); j++){
+	for(int k = 0; k < addlist[i][j].size(); k++){
+	for(int l = 0; l < addlist[i][j][k].size(); l++){
+		addlist[i][j][k][l]=0.0;
+		for(int a = 0; a < n; a++){
+			double transformval=0.0;
+			double lastint=0.0;
+			switch(type){
+			case 0:
+				transformval=C(a,i);
+				lastint=tbv(a,j,k,l);
+				break;
+			case 1:
+				transformval=C(a,j);
+				lastint=pulllist[i][a][k][l];
+				break;
+			case 2:
+				transformval=C(a,k);
+				lastint=pulllist[i][j][a][l];
+				break;
+			case 3:
+				transformval=C(a,l);
+				lastint=pulllist[i][j][k][a];
+				break;
+			default:break;
+			}
+			addlist[i][j][k][l]+=transformval*lastint;
+		}
+	}}}}
 
-	for(int i = 0; i < moi.size(); i++){
-		for(int j =0; j < moi[i].size(); j++){
-			for(int k = 0; k < moi[i][j].size(); k++){
-				for(int l = 0; l < moi[i][j][k].size(); l++){
-					translist[i][j][k][l]=0.0;
-					int ti=i,tj=j,tk=k,tl=l;
-					for(int a = 0; a < n; a++){
-						double transval=0.0;
-						
-						switch(type){
-						case 0: ti=a; transval=C(a,i);break;
-						case 1: tj=a; transval=C(a,j);break;
-						case 2: tk=a; transval=C(a,k);break;
-						case 3: tl=a; transval=C(a,l);break;
-						default:break;
-						}
+}
 
-						translist[i][j][k][l]+=transval*mov(ti,tj,tk,tl);
-					}
-				}
+void IntegralChugger::inittwobodylist(twobodylist & tbl, int n){
+	tbl.resize(n);
+	for(auto & a: tbl){
+		a.resize(n);
+		for(auto &b: a){
+			b.resize(n);
+			for(auto & c: b){
+				c.resize(n);
 			}
 		}
 	}
-	moi=translist;
+}
+
+void IntegralChugger::cleartwobodylist(twobodylist & tbl){
+	for(auto & a: tbl){
+		for(auto &b: a){
+			for(auto & c: b){
+				c.clear();
+			}
+			b.clear();
+		}
+		a.clear();
+	}
+	tbl.clear();
 }
 

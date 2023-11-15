@@ -48,11 +48,11 @@ double FullCISolver::matrixEl(int r, int c){
 	double e2=matel2e(sc);
 	double me=e1+e2;
 
-	/*if((r==0||c==0) && (sc.diff[0].size()+sc.diff[1].size())==2){
+	if((r==0||c==0) && (sc.diff[0].size()+sc.diff[1].size())==2){
 		std::cout << "SINGLE EXCITATION GROUND TEST: " << me << std::endl;
 		std::cout << e1<< " " << e2 <<std::endl;
 	}
-	*/
+	
 	return me;
 }
 
@@ -62,20 +62,21 @@ double FullCISolver::matel1e(SlaterCompare & sc, bool verbose){
 	int totaldiff=sc.diff[0].size()+sc.diff[1].size();
 	switch(totaldiff){
 	case 0:
+		//Evaluate all doublly occupied orbitals
 		for(int b = 0; b < sc.share_do.size(); b++){
 			int m = sc.share_do[b];
 			val+=2.0*ints->MOH(m,m);
 		}
-		for(int b = 0; b < sc.share_so[0].size(); b++){
-			int m = sc.share_so[0][b];
-			val+=ints->MOH(m,m);
-		}
-		for(int b = 0; b < sc.share_so[1].size(); b++){
-			int m = sc.share_so[1][b];
-			val+=ints->MOH(m,m);
+		//Evaluate all singly occupied orbitals
+		for(int spin =0; spin < 2; spin++){
+			for(int b = 0; b < sc.share_so[spin].size(); b++){
+				int m = sc.share_so[spin][b];
+				val+=ints->MOH(m,m);
+			}
 		}
 		break;
 	case 2:{
+		       //Evaluate just the orbitals that differ between slater determinants
 			int diffspin=(sc.diff[0].empty())?1:0;
 			int i=sc.diff[diffspin][0], j=sc.diff[diffspin][1];
 
@@ -93,35 +94,44 @@ double FullCISolver::matel2e(SlaterCompare & sc, bool verbose){
 
 	switch(totaldiff){
 	case 0:{
+		//For all shared double occupied orbitals
 		for(int a = 0; a < sc.share_do.size(); a++){
 			int i = sc.share_do[a];
+			//For all alpha and beta singly occupied orbitals
 			for(int d=0; d <2;d++){
 			for(int b = 0; b < sc.share_so[d].size(); b++){
 				int j = sc.share_so[d][b];
 				val+=2.0*ints->mov(i,i,j,j)-ints->mov(i,j,i,j);
 			}
 			}
+			//Itself
 			val+=ints->mov(i,i,i,i);
+			//All other doubly occupied orbitals
 			for(int b = 0; b < sc.share_do.size(); b++){
 				int j = sc.share_do[b];
 
 				val+= 4.0*ints->mov(i,i,j,j)-2.0*ints->mov(i,j,j,i);
 			}
 		}
+		//For all the singly occupied alpha orbitals
 		for(int a = 0; a < sc.share_so[0].size();a++){
 			int i = sc.share_so[0][a];
+			//all alpha alpha interactions
 			for(int b = 0; b < sc.share_so[0].size();b++){
 				int j = sc.share_so[0][b];
 
 				val+=ints->mov(i,i,j,j)-ints->mov(i,j,j,i);
 			}
+			//all alpha beta interactions
 			for(int b = 0; b < sc.share_so[1].size(); b++){
 				int j = sc.share_so[1][b];
 				val+=ints->mov(i,i,j,j);
 			}
 		}
+		//For all singly occupied beta orbitals
 		for(int a = 0; a < sc.share_so[1].size();a++){
 			int i = sc.share_so[1][a];
+			//all beta beta interactions
 			for(int b = 0; b < sc.share_so[1].size();b++){
 				int j = sc.share_so[1][b];
 				val+=ints->mov(i,i,j,j)-ints->mov(i,j,j,i);
@@ -129,16 +139,20 @@ double FullCISolver::matel2e(SlaterCompare & sc, bool verbose){
 		}
 		}break;
 	case 2:{
+		//Check if diff is in alpha or beta string
 		int diffspin=sc.diff[0].empty()?1:0;
 		int i = sc.diff[diffspin][0], j = sc.diff[diffspin][1];
+		//Interactions with all the doubly occupied orbitals
 		for(int b = 0; b < sc.share_do.size(); b++){
 			int m = sc.share_do[b];
 			val+=2*ints->mov(i,j,m,m)-ints->mov(i,m,m,j);
 		}
+		//Interactions with singly occupied orbitals of same spin
 		for(int b =0; b < sc.share_so[diffspin].size();b++){
 			int m = sc.share_so[diffspin][b];
 			val+=ints->mov(i,j,m,m)-ints->mov(i,m,m,j);
 		}
+		//Interactions with singly occupied orbitals of different spin
 		int diffspininv=(diffspin+1)%2;
 		for(int b = 0; b < sc.share_so[diffspininv].size();b++){
 			int m = sc.share_so[diffspininv][b];
@@ -147,6 +161,7 @@ double FullCISolver::matel2e(SlaterCompare & sc, bool verbose){
 		}break;
 
 	case 4:
+	       //If diffs are in alpha and beta strings sperarly
 		if(sc.diff[0].size()==2){
 			int i=sc.diff[0][0],
 			    j=sc.diff[1][0],
@@ -155,6 +170,7 @@ double FullCISolver::matel2e(SlaterCompare & sc, bool verbose){
 
 			    val=ints->mov(i,k,j,l);
 		}
+		//Diffs only in alpha or beta strings
 		else{
 			int diffspin=sc.diff[0].empty()?1:0;
 

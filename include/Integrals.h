@@ -74,7 +74,10 @@ private:
 
 	std::array<int,4> get2bodyintcord(int a, int b, int c, int d);
 
-	void partialtransform(Matrix & C, int type);
+	void partialtransform(Matrix & C, int type, twobodylist & pulllist,twobodylist & addlist);
+
+	void inittwobodylist(twobodylist & tbl, int n);
+	void cleartwobodylist(twobodylist & tbl);
 };
 
 
