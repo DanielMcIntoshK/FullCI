@@ -2,6 +2,7 @@
 #include <bitset>
 #include <algorithm>
 #include <iostream>
+#include <cstring>
 
 int rfactorial(int n, int m){
 	int v=1;
@@ -70,6 +71,19 @@ std::vector<int> SlaterDet::operator&(const SlaterDet & sd) const{
 	return share;
 }
 
+void SlaterDet::print(){
+	for(int j = 0; j < SlaterDet::codes.codeblklen;j++){
+		std::bitset<8> pbs(SlaterDet::codes.strs[aidx][SlaterDet::codes.codeblklen-1-j]);
+		std::cout << pbs << " ";
+	}
+	std::cout << std::endl;
+	for(int j = 0; j < SlaterDet::codes.codeblklen;j++){
+		std::bitset<8> pbs(SlaterDet::codes.strs[bidx][SlaterDet::codes.codeblklen-1-j]);
+		std::cout << pbs << " ";
+	}
+	std::cout << std::endl;
+}
+
 void SlaterDet::buildStrings(int norb, int nelec){
 
 	int strcnt=choose(norb,nelec);
@@ -94,6 +108,8 @@ void SlaterDet::buildStrings(int norb, int nelec){
 		}
 		count++;
 	}while(std::prev_permutation(permute.begin(),permute.end()));
+		
+	for(int i = 0; i < 4; i++) SlaterDet::codes.cpystrs[i]=new unsigned char[SlaterDet::codes.codeblklen];
 }
 
 void SlaterDet::printStrings(){
@@ -153,5 +169,94 @@ SlaterCompare compareSlaterDet(SlaterDet & sd1, SlaterDet & sd2){
 	sc.diff[1]=nshared1_b;
 
 	return sc;
+}
+
+double secondQuant1e(SlaterDet & sd1, SlaterDet & sd2, int p, int r,int n){
+	auto & strs=SlaterDet::codes.strs;
+	auto & cpystrs=SlaterDet::codes.cpystrs;
+	int & blklen=SlaterDet::codes.codeblklen;
+
+	memcpy(cpystrs[0],strs[sd2.aidx],blklen);
+	memcpy(cpystrs[1],strs[sd2.bidx],blklen);
+	memcpy(cpystrs[2],strs[sd1.aidx],blklen);
+	memcpy(cpystrs[3],strs[sd1.bidx],blklen);
+
+	int pa=(p<n)?0:1, ra=(r<n)?0:1;
+	int pblk=(p-n*pa)/8,pidx=(p-n*pa)%8,
+	    rblk=(r-n*ra)/8,ridx=(r-n*ra)%8;
+	
+	int sign=0;
+
+	if(!checkOpperator(cpystrs[ra],rblk,ridx,true)) return 0;	
+	sign+=countLower(cpystrs[ra],rblk,ridx)+((ra!=0)?0:countLower(cpystrs[0],blklen,-1));
+	cpystrs[ra][rblk]^=(1<<ridx);
+	
+	if(!checkOpperator(cpystrs[pa],pblk,pidx,false)) return 0;	
+	sign+=countLower(cpystrs[pa],pblk,pidx)+((pa!=0)?0:countLower(cpystrs[0],blklen,-1));
+	cpystrs[pa][pblk]^=(1<<pidx);
+
+	for(int i = 0; i < blklen; i++){
+		if(memcmp(cpystrs[0],cpystrs[2],blklen)!=0||
+			memcmp(cpystrs[1],cpystrs[3],blklen)!=0) return 0.0;
+	}
+	return (sign%2==0)?1.0:-1.0;
+}
+
+double secondQuant2e(SlaterDet & sd1, SlaterDet & sd2, int p, int q, int r, int s,int n){
+	auto & strs=SlaterDet::codes.strs;
+	auto & cpystrs=SlaterDet::codes.cpystrs;
+	int & blklen=SlaterDet::codes.codeblklen;
+
+	memcpy(cpystrs[0],strs[sd2.aidx],blklen);
+	memcpy(cpystrs[1],strs[sd2.bidx],blklen);
+	memcpy(cpystrs[2],strs[sd1.aidx],blklen);
+	memcpy(cpystrs[3],strs[sd1.bidx],blklen);
+	
+	int pa=(p<n)?0:1, ra=(r<n)?0:1, qa=(q<n)?0:1, sa=(s<n)?0:1;
+	int pblk=(p-n*pa)/8,pidx=(p-n*pa)%8,
+	    qblk=(q-n*qa)/8,qidx=(q-n*qa)%8,
+	    rblk=(r-n*ra)/8,ridx=(r-n*ra)%8,
+	    sblk=(s-n*sa)/8,sidx=(s-n*sa)%8;
+	
+	int sign = 0;
+
+	if(!checkOpperator(cpystrs[sa],sblk,sidx,true)) return 0;
+	sign+=countLower(cpystrs[sa],sblk,sidx)+((sa!=0)?0:countLower(cpystrs[0],blklen,-1));
+	cpystrs[sa][sblk]^=(1<<sidx);
+
+	if(!checkOpperator(cpystrs[ra],rblk,ridx,true)) return 0;	
+	sign+=countLower(cpystrs[ra],rblk,ridx)+((ra!=0)?0:countLower(cpystrs[0],blklen,-1));
+	cpystrs[ra][rblk]^=(1<<ridx);
+
+	if(!checkOpperator(cpystrs[qa],qblk,qidx,false)) return 0;
+	sign+=countLower(cpystrs[qa],qblk,qidx)+((qa!=0)?0:countLower(cpystrs[0],blklen,-1));
+	cpystrs[qa][qblk]^=(1<<qidx);
+	
+	if(!checkOpperator(cpystrs[pa],pblk,pidx,false)) return 0;
+	sign+=countLower(cpystrs[pa],pblk,pidx)+((pa!=0)?0:countLower(cpystrs[0],blklen,-1));
+	cpystrs[pa][pblk]^=(1<<pidx);
+
+	for(int i = 0; i < blklen; i++){
+		if(memcmp(cpystrs[0],cpystrs[2],blklen)!=0||
+			memcmp(cpystrs[1],cpystrs[3],blklen)!=0) return 0.0;
+	}
+	return (sign%2==0)?1.0:-1.0;
+}
+
+bool checkOpperator(unsigned char * str, int opblk, int opidx, bool anihilate){
+	if(anihilate) return str[opblk]&(1<<opidx);
+	return !(str[opblk]&(1<<opidx));
+}
+int countLower(unsigned char * str, int blk, int idx){
+	int cnt=0;
+	for(int i = 0; i < blk; i++){
+		cnt+=std::bitset<8>(str[blk]).count();
+	}
+	if(idx>=0){
+		for(int i = 0; i < idx; i++){
+			if(str[blk]&(1<<i)) cnt++;
+		}
+	}
+	return cnt;
 }
 

@@ -44,13 +44,19 @@ double FullCISolver::matrixEl(int r, int c){
 
 	SlaterCompare sc=compareSlaterDet(sd1,sd2);
 
-	double e1=matel1e(sc);
-	double e2=matel2e(sc);
-	double me=e1+e2;
+	double e1 = secondQuantMatel1e(sd1,sd2,ints->MOH.rows());
+	double e2 = secondQuantMatel2e(sd1,sd2,ints->MOH.rows());
+	double me = e1+e2;
+
+	double oe1=matel1e(sc);
+	double oe2=matel2e(sc);
+	//double me=e1+e2;
 
 	if((r==0||c==0) && (sc.diff[0].size()+sc.diff[1].size())==2){
 		std::cout << "SINGLE EXCITATION GROUND TEST: " << me << std::endl;
-		std::cout << e1<< " " << e2 <<std::endl;
+		std::cout << r << " " << c << std::endl;
+		std::cout << e1 << " " << e2 << std::endl;
+		std::cout << oe1 << " " << oe2 << std::endl;
 	}
 	
 	return me;
@@ -240,6 +246,29 @@ double FullCISolver::matel2e(std::vector<int> & diff,std::vector<int> & share,bo
 		val=0.0;
 	}
 	return val;
+}
+
+double FullCISolver::secondQuantMatel1e(SlaterDet & s1, SlaterDet & s2,int n){
+	double val1e = 0.0;
+	for(int p = 0; p < n; p++){
+		for(int r=0; r < n; r++){
+			val1e+=ints->MOH(p,r)*secondQuant1e(s1,s2,p,r,n);
+		}
+	}
+	return val1e;
+}
+double FullCISolver::secondQuantMatel2e(SlaterDet & s1, SlaterDet & s2,int n){
+	double val2e=0.0;
+	for(int p = 0; p < n; p++){
+		for(int q = 0; q < n; q++){
+			for(int r = 0; r < n; r++){
+				for(int s = 0; s < n; s++){
+					val2e+=ints->mov(p,s,q,r)*secondQuant2e(s1,s2,p,q,r,s,n);
+				}
+			}
+		}
+	}
+	return 0.5*val2e;
 }
 
 void FullCISolver::cleanup(){
