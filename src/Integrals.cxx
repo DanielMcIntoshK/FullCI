@@ -265,9 +265,10 @@ void IntegralChugger::TransformInts(Matrix & C){
 	}
 	
 	std::cout << "TRANSFORMING 2e ints\n";
-	twobodylist t1,t2;
+	twobodylist t1,t2, test;
 	inittwobodylist(t1,n);
 	inittwobodylist(t2,n);
+
 	for(int t= 0; t < 4; t++){
 		partialtransform(C,t,(t%2==0)?t1:t2,(t%2==0)?t2:(t==3)?moi:t1);
 	}

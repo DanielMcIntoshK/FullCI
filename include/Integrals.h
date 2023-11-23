@@ -65,7 +65,7 @@ public:
 	//The 4D list of 2body integrals
 	twobodylist tbi;
 	twobodylist moi;
-private:
+public:
 	BasisSet basis;
 	ModelParams params;
 

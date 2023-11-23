@@ -26,20 +26,14 @@ class FullCISolver{
 		void computeHamiltonian();
 		double matrixEl(int x, int y);
 
-		double matel1e(std::vector<int> &diff,std::vector<int> &share);
-		double matel2e(std::vector<int> &diff,std::vector<int> &share,bool verbose=false);
-	
-		double matel1e(SlaterCompare &sc,bool verbose=false);
-		double matel2e(SlaterCompare &sc,bool verbose=false);
-
-		double secondQuantMatel1e(SlaterDet & s1, SlaterDet & s2,int n);
-		double secondQuantMatel2e(SlaterDet & s1, SlaterDet & s2,int n);
+		double secondQuantMatel1e(SlaterDet & s1, SlaterDet & s2,SlaterCompare & sc);
+		double secondQuantMatel2e(SlaterDet & s1, SlaterDet & s2,SlaterCompare & sc);
 
 		void cleanup();
 	private:
 		IntegralChugger * ints;
 		
-		int strcnt, cisize;
+		int strcnt, cisize, bssize;
 
 		Matrix CIMat;
 };

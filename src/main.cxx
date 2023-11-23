@@ -9,8 +9,18 @@
 #include "BasisBuilder.h"
 #include "Integrals.h"
 #include "FCI.h" 
+#include "SlaterDet.h"
 
 int main(int argc, char** argv){
+	/*SlaterDet::buildStrings(6,3);
+	SlaterDet sd1(0,0), sd2(3,0);
+
+	sd1.print();sd2.print();
+	auto sc = compareSlaterDet(sd1,sd2);
+
+	std::cout << "DIFF: " << sc.diff[0] << " " << sc.diff[1] << std::endl;
+
+	return 0;*/
 	libint2::initialize();
 	
 	if(argc < 2) {std::cout << "NEEDS AN INPUT FILE\n";return -1;}
@@ -66,9 +76,8 @@ int main(int argc, char** argv){
 	FullCISolver fcis;
 	FullCISolver::FCIResults fcir =fcis.fci(params,ic,hfr);
 
-	std::cout << "MAYBE E: " << fcir.eigenvectors(0,0) +hfr.enuc << std::endl;
-	std::cout << "MAYBE E: " << fcir.eigenvectors(fcir.eigenvectors.rows()-1,0) + hfr.enuc << std::endl;
-	//fcis.cleanup();
+	std::cout << "FCI E: " << fcir.eigenvectors(0,0) +hfr.enuc << std::endl;
+	fcis.cleanup();
 
 	libint2::finalize();
 

@@ -125,7 +125,6 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 		std::cout << "SCF STEP " << iter << "\tENERGY: " << ehf << "\tEDIFF: " << ediff << std::endl; 
 	}while((std::fabs(ediff) > scfconv) || (std::fabs(rmsd) > scfconv));
 
-	
 	results.eelec = ehf;
 	results.C = C;
 	results.D = D;

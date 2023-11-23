@@ -27,7 +27,7 @@ ModelParams::ModelParams(){
 		{"CISQP",false},{"OEP",false},{"IP",false},{"EA",false},{"XCC",false},
 		{"SPHERICAL",false},{"SLATER51",false},{"KLI",false},{"AC",false},{"POLAR",false},
 		{"POLARX",true},{"POLARY",true},{"POLARZ",true},{"SOS",false},{"RELATIVITY",false},
-		{"SINANOGLU",false}};
+		{"SINANOGLU",false},{"BASIS_FILE",false}};
 	//std::cout << iparams.size() + dparams.size() + cparams.size() + lparams.size() << std::endl;
 }
 
@@ -61,22 +61,24 @@ int ModelParams::ReadInputFile(std::istream & in){
 
 			auto & ellist=libint2::chemistry::get_element_info();
 
-			while(true){
+			std::string mcountline;
+			std::getline(in,mcountline);
+			int mcount=std::stoi(mcountline);
+			for(int i = 0; i < mcount; i++){
 				std::string gline;
 				std::getline(in,gline);
 				std::stringstream gs(gline);
 
 				gs >> a >> x >> y >> z;
 
-				if(a=="X") break;
 				libint2::Atom at;
 				
 				for(auto el: ellist){
 					if(a==el.symbol){
 						at.atomic_number=el.Z;
-						at.x=std::stod(x);
-						at.y=std::stod(y);
-						at.z=std::stod(z);
+						at.x=std::stod(x)*1.889725822;
+						at.y=std::stod(y)*1.889725822;
+						at.z=std::stod(z)*1.889725822;
 						break;
 					}
 				}

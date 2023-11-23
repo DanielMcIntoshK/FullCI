@@ -19,58 +19,6 @@ SlaterDet::SlaterDet(int alpidx, int betidx){
 	bidx=betidx;
 }
 
-std::vector<int> SlaterDet::operator^(const SlaterDet & sd) const{
-	std::vector<int> nm1,nm2;
-
-	int nmcnt=0;
-	for(int i = 0; i < codes.codeblklen;i++){
-		std::bitset<8> c1(codes.strs[aidx][i]),c2(codes.strs[sd.aidx][i]);
-		std::bitset<8> check = c1^c2;
-		
-		for(int j = 0; j < 8;j++){
-			if(check.test(j)){
-				if(c1.test(j))nm1.push_back(i*8+j);
-				else nm2.push_back(i*8+j);
-			}
-		}
-	}
-	for(int i = 0; i < codes.codeblklen;i++){
-		std::bitset<8> c1(codes.strs[bidx][i]),c2(codes.strs[sd.bidx][i]);
-		std::bitset<8> check = c1^c2;
-		
-		for(int j = 0; j < 8;j++){
-			if(check.test(j)){
-				if(c1.test(j))nm1.push_back(i*8+j);
-				else nm2.push_back(i*8+j);
-			}
-		}
-	}
-	nm1.insert(nm1.end(),nm2.begin(),nm2.end());
-	return nm1;
-}
-
-std::vector<int> SlaterDet::operator&(const SlaterDet & sd) const{
-	std::vector<int> share;
-
-	for(int i = 0; i < codes.codeblklen;i++){
-		std::bitset<8> c1(codes.strs[aidx][i]),c2(codes.strs[sd.aidx][i]);
-		std::bitset<8> check = c1&c2;
-		
-		for(int j = 0; j < 8;j++){
-			if(check.test(j))share.push_back(i*8+j);
-		}
-	}
-	for(int i = 0; i < codes.codeblklen;i++){
-		std::bitset<8> c1(codes.strs[bidx][i]),c2(codes.strs[sd.bidx][i]);
-		std::bitset<8> check = c1&c2;
-		
-		for(int j = 0; j < 8;j++){
-			if(check.test(j))share.push_back(i*8+j);
-		}
-	}
-	return share;
-}
-
 void SlaterDet::print(){
 	for(int j = 0; j < SlaterDet::codes.codeblklen;j++){
 		std::bitset<8> pbs(SlaterDet::codes.strs[aidx][SlaterDet::codes.codeblklen-1-j]);
@@ -85,6 +33,7 @@ void SlaterDet::print(){
 }
 
 void SlaterDet::buildStrings(int norb, int nelec){
+	SlaterDet::codes.norbs=norb;
 
 	int strcnt=choose(norb,nelec);
 	std::vector<bool> permute;
@@ -129,49 +78,44 @@ void SlaterDet::cleanStrings(){
 		delete[] SlaterDet::codes.strs[i];
 	}
 	SlaterDet::codes.strs.clear();
+	for(int i = 0; i < 4; i ++){
+		delete[] SlaterDet::codes.cpystrs[i];
+	}
+	//SlaterDet::codes.cpystrs.clear();
 }
 
 StringMap SlaterDet::codes=StringMap();
 
 SlaterCompare compareSlaterDet(SlaterDet & sd1, SlaterDet & sd2){
-	SlaterCompare sc;
-	std::vector<int> nshared1_a,nshared2_a,
-		nshared1_b,nshared2_b;
-	for(int i = 0; i < SlaterDet::codes.codeblklen; i++){
-		std::bitset<8> c1a(SlaterDet::codes.strs[sd1.aidx][i]),c2a(SlaterDet::codes.strs[sd2.aidx][i]),
-			c1b(SlaterDet::codes.strs[sd1.bidx][i]), c2b(SlaterDet::codes.strs[sd2.bidx][i]);
-		
-		std::bitset<8> checka = c1a^c2a;
-		std::bitset<8> checkb = c1b^c2b;
+	auto & strs=SlaterDet::codes.strs;
+	int & blklen=SlaterDet::codes.codeblklen;
+	int & n=SlaterDet::codes.norbs;
+	
+	unsigned char * alpha1=strs[sd1.aidx], *alpha2=strs[sd2.aidx],
+		*beta1=strs[sd1.bidx], *beta2=strs[sd2.bidx];
 
-		std::bitset<8> anda = c1a&c2a;
-		std::bitset<8> andb = c1b&c2b;
-		std::bitset<8> sharedo=anda&andb;
-		std::bitset<8> shareso=anda^andb;
-		
-		for(int j = 0; j < 8;j++){
-			if(checka.test(j)){
-				if(c1a.test(j))nshared1_a.push_back(i*8+j);
-				else nshared2_a.push_back(i*8+j);
-			}
-			if(checkb.test(j)){
-				if(c1b.test(j))nshared1_b.push_back(i*8+j);
-				else nshared2_b.push_back(i*8+j);
-			}
-			if(sharedo.test(j)) sc.share_do.push_back(i*8+j);
-			if(shareso.test(j)) sc.share_so[(anda.test(j))?0:1].push_back(i*8+j);
+	SlaterCompare sc;
+	std::vector<int> diff1, diff2;
+	for(int i = 0; i < blklen; i++){
+		std::bitset<8> a1blk(alpha1[i]),a2blk(alpha2[i]),
+			b1blk(beta1[i]),b2blk(beta2[i]);
+
+		std::bitset<8> diffalpha=a1blk^a2blk,diffbeta=b1blk^b2blk;
+		std::bitset<8> samealpha=a1blk&a2blk,samebeta=b1blk&b2blk;
+
+		for(int j = 0; j < 8; j++){
+			if(diffalpha.test(j)) {((a1blk.test(j))?diff1:diff2).push_back(j+8*i);}
+			if(diffbeta.test(j)) {((b1blk.test(j))?diff1:diff2).push_back(j+8*i+n);}
+			if(samealpha.test(j)){sc.share.push_back(j+i*8);}
+			if(samebeta.test(j)){sc.share.push_back(j+i*8+n);}
 		}
 	}
-	nshared1_a.insert(nshared1_a.end(),nshared2_a.begin(),nshared2_a.end());
-	nshared1_b.insert(nshared1_b.end(),nshared2_b.begin(),nshared2_b.end());
-	
-	sc.diff[0]=nshared1_a;
-	sc.diff[1]=nshared1_b;
-
+	diff1.insert(diff1.end(),diff2.begin(),diff2.end());
+	sc.diff=diff1;
 	return sc;
 }
 
-double secondQuant1e(SlaterDet & sd1, SlaterDet & sd2, int p, int r,int n){
+double secondQuant1e(SlaterDet & sd1, SlaterDet & sd2, int p, int r,int n,bool verbose){
 	auto & strs=SlaterDet::codes.strs;
 	auto & cpystrs=SlaterDet::codes.cpystrs;
 	int & blklen=SlaterDet::codes.codeblklen;
@@ -187,12 +131,14 @@ double secondQuant1e(SlaterDet & sd1, SlaterDet & sd2, int p, int r,int n){
 	
 	int sign=0;
 
-	if(!checkOpperator(cpystrs[ra],rblk,ridx,true)) return 0;	
-	sign+=countLower(cpystrs[ra],rblk,ridx)+((ra!=0)?0:countLower(cpystrs[0],blklen,-1));
+	if(!checkOpperator(cpystrs[ra],rblk,ridx,true)) return 0;
+	sign+=countLower(cpystrs[ra],rblk,ridx);
+	if(ra==1)sign+=countLower(cpystrs[0],blklen,-1);
 	cpystrs[ra][rblk]^=(1<<ridx);
 	
-	if(!checkOpperator(cpystrs[pa],pblk,pidx,false)) return 0;	
-	sign+=countLower(cpystrs[pa],pblk,pidx)+((pa!=0)?0:countLower(cpystrs[0],blklen,-1));
+	if(!checkOpperator(cpystrs[pa],pblk,pidx,false)) return 0;
+	sign+=countLower(cpystrs[pa],pblk,pidx);
+	if(pa==1)sign+=countLower(cpystrs[0],blklen,-1);
 	cpystrs[pa][pblk]^=(1<<pidx);
 
 	for(int i = 0; i < blklen; i++){
@@ -202,7 +148,7 @@ double secondQuant1e(SlaterDet & sd1, SlaterDet & sd2, int p, int r,int n){
 	return (sign%2==0)?1.0:-1.0;
 }
 
-double secondQuant2e(SlaterDet & sd1, SlaterDet & sd2, int p, int q, int r, int s,int n){
+double secondQuant2e(SlaterDet & sd1, SlaterDet & sd2, int p, int q, int r, int s,int n,bool verbose){
 	auto & strs=SlaterDet::codes.strs;
 	auto & cpystrs=SlaterDet::codes.cpystrs;
 	int & blklen=SlaterDet::codes.codeblklen;
@@ -221,20 +167,36 @@ double secondQuant2e(SlaterDet & sd1, SlaterDet & sd2, int p, int q, int r, int 
 	int sign = 0;
 
 	if(!checkOpperator(cpystrs[sa],sblk,sidx,true)) return 0;
-	sign+=countLower(cpystrs[sa],sblk,sidx)+((sa!=0)?0:countLower(cpystrs[0],blklen,-1));
+	sign+=countLower(cpystrs[sa],sblk,sidx);
+	sign+=((sa==0)?0:countLower(cpystrs[0],blklen,-1));
 	cpystrs[sa][sblk]^=(1<<sidx);
 
-	if(!checkOpperator(cpystrs[ra],rblk,ridx,true)) return 0;	
-	sign+=countLower(cpystrs[ra],rblk,ridx)+((ra!=0)?0:countLower(cpystrs[0],blklen,-1));
+	if(!checkOpperator(cpystrs[ra],rblk,ridx,true)) return 0;
+	sign+=countLower(cpystrs[ra],rblk,ridx);
+	sign+=((ra==0)?0:countLower(cpystrs[0],blklen,-1));
 	cpystrs[ra][rblk]^=(1<<ridx);
-
-	if(!checkOpperator(cpystrs[qa],qblk,qidx,false)) return 0;
-	sign+=countLower(cpystrs[qa],qblk,qidx)+((qa!=0)?0:countLower(cpystrs[0],blklen,-1));
-	cpystrs[qa][qblk]^=(1<<qidx);
 	
+	/*
+	if(!checkOpperator(cpystrs[qa],qblk,qidx,false)) return 0;
+	sign+=countLower(cpystrs[qa],qblk,qidx);
+	sign+=((qa==0)?0:countLower(cpystrs[0],blklen,-1));
+	cpystrs[qa][qblk]^=(1<<qidx);
+
 	if(!checkOpperator(cpystrs[pa],pblk,pidx,false)) return 0;
-	sign+=countLower(cpystrs[pa],pblk,pidx)+((pa!=0)?0:countLower(cpystrs[0],blklen,-1));
+	sign+=countLower(cpystrs[pa],pblk,pidx);
+	sign+=((pa==0)?0:countLower(cpystrs[0],blklen,-1));
 	cpystrs[pa][pblk]^=(1<<pidx);
+	*/
+
+	if(!checkOpperator(cpystrs[pa+2],pblk,pidx,true)) return 0;
+	sign+=countLower(cpystrs[pa+2],pblk,pidx);
+	sign+=((pa==0)?0:countLower(cpystrs[2],blklen,-1));
+	cpystrs[pa+2][pblk]^=(1<<pidx);
+
+	if(!checkOpperator(cpystrs[qa+2],qblk,qidx,true)) return 0;
+	sign+=countLower(cpystrs[qa+2],qblk,qidx);
+	sign+=((qa==0)?0:countLower(cpystrs[2],blklen,-1));
+	cpystrs[qa+2][qblk]^=(1<<qidx);
 
 	for(int i = 0; i < blklen; i++){
 		if(memcmp(cpystrs[0],cpystrs[2],blklen)!=0||
@@ -244,13 +206,13 @@ double secondQuant2e(SlaterDet & sd1, SlaterDet & sd2, int p, int q, int r, int 
 }
 
 bool checkOpperator(unsigned char * str, int opblk, int opidx, bool anihilate){
-	if(anihilate) return str[opblk]&(1<<opidx);
+	if(anihilate) return (str[opblk]&(1<<opidx));
 	return !(str[opblk]&(1<<opidx));
 }
 int countLower(unsigned char * str, int blk, int idx){
 	int cnt=0;
 	for(int i = 0; i < blk; i++){
-		cnt+=std::bitset<8>(str[blk]).count();
+		cnt+=std::bitset<8>(str[i]).count();
 	}
 	if(idx>=0){
 		for(int i = 0; i < idx; i++){

@@ -10,20 +10,16 @@ struct StringMap{
 	std::vector<unsigned char*> strs;
 	int codeblklen;
 	std::array<unsigned char *,4> cpystrs;
+	int norbs;
 };
 
 struct SlaterCompare{
-	std::array<std::vector<int>,2> diff, 
-		share_so;
-	std::vector<int> share_do;
+	std::vector<int> diff, share;
 };
 
 class SlaterDet{
 public:
 	SlaterDet(int alpidx, int betidx);
-
-	std::vector<int> operator^(const SlaterDet & sd) const;
-	std::vector<int> operator&(const SlaterDet & sd) const;
 
 	void print();
 
@@ -40,9 +36,9 @@ public:
 
 SlaterCompare compareSlaterDet(SlaterDet & sd1, SlaterDet & sd2);
 
-double secondQuant1e(SlaterDet & sd1, SlaterDet & sd2,int,int,int);
+double secondQuant1e(SlaterDet & sd1, SlaterDet & sd2,int,int,int,bool=false);
 
-double secondQuant2e(SlaterDet & sd1, SlaterDet & sd2, int,int,int,int,int);
+double secondQuant2e(SlaterDet & sd1, SlaterDet & sd2, int,int,int,int,int,bool=false);
 
 bool checkOpperator(unsigned char *  str, int opblk, int opidx, bool anihilate);
 int countLower(unsigned char *  str, int blk, int idx);

@@ -9,6 +9,13 @@ BasisBuilder::BasisBuilder(){
 }
 
 int BasisBuilder::Build(std::string filename, ModelParams & params){
+	if(!params.lparams["BASIS_FILE"]){
+		std::string basisname=params.cparams["BASISSET"];
+		std::cout <<"USING BUILT IN BASIS SET: " <<basisname << std::endl;
+		bs=libint2::BasisSet(params.cparams["BASISSET"],params.atoms);
+		return 0;
+	}
+
 	std::ifstream in(filename);
 
 	std::vector<libint2::Atom> & atoms = params.atoms;
