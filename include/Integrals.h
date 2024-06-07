@@ -52,6 +52,7 @@ public:
 	double mov(int a, int b, int c, int d);
 
 	void TransformInts(Matrix & C);
+	void TransformFock(Matrix & C, Matrix & G);
 
 	bool isTransformed(){return !moi.empty();}
 public:
@@ -61,6 +62,7 @@ public:
 	Matrix V;
 
 	Matrix MOH;
+	Matrix MOG;
 
 	//The 4D list of 2body integrals
 	twobodylist tbi;

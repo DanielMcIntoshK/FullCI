@@ -11,6 +11,7 @@ struct StringMap{
 	int codeblklen;
 	std::array<unsigned char *,4> cpystrs;
 	int norbs;
+	int nelec;
 };
 
 struct SlaterCompare{
@@ -24,6 +25,8 @@ public:
 	void print();
 
 	static void buildStrings(int norb,int nelec);
+	static void buildDecoder();
+	static int decode(unsigned char * str);
 	static void printStrings();
 	static void cleanStrings();
 
@@ -32,6 +35,7 @@ public:
 	int aidx,bidx;
 
 	static StringMap codes;
+	static std::vector<std::vector<int>> decoder;
 };
 
 SlaterCompare compareSlaterDet(SlaterDet & sd1, SlaterDet & sd2);

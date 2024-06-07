@@ -245,8 +245,6 @@ double IntegralChugger::mov(int a, int b, int c, int d){
 void IntegralChugger::TransformInts(Matrix & C){
 	moi = tbi;
 
-	
-
 	int n = C.rows();
 
 	std::cout << "TRANSFORMING 1e ints\n";
@@ -274,6 +272,25 @@ void IntegralChugger::TransformInts(Matrix & C){
 	}
 	cleartwobodylist(t1);
 	cleartwobodylist(t2);
+}
+
+void IntegralChugger::TransformFock(Matrix & C, Matrix & G){
+	std::cout << "TRANSFORMING G MATRIX FOR LAMBDA CALCULATION\n";
+
+	int n = C.rows();
+
+	MOG=Matrix(n,n);
+	for(int r = 0; r < MOG.rows(); r++){
+		for(int c=0; c < MOG.cols();c++){
+			double sum = 0.0;
+			for(int c1=0; c1<n;c1++){
+				for(int c2=0; c2 < n; c2++){
+					sum+=C(c1,r)*C(c2,c)*G(c1,c2);
+				}
+			}
+			MOG(r,c)=sum;
+		}
+	}	
 }
 
 void IntegralChugger::partialtransform(Matrix & C, int type,twobodylist & pulllist, twobodylist & addlist){

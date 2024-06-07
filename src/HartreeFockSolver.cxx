@@ -74,6 +74,7 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	
 	Matrix C;
 	Matrix G;
+	Matrix F;
 	MatVec E;
 
 	do{
@@ -86,7 +87,7 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 		Matrix D_last = D;
 
 		G = computeGMatrix(D,ic);
-		Matrix F = H+G;
+		F = H+G;
 
 		//F+= computeGMatrix(D);
 
@@ -121,7 +122,7 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 
 		ediff = ehf - ehf_last;
 		rmsd = (D-D_last).norm();
-
+		
 		std::cout << "SCF STEP " << iter << "\tENERGY: " << ehf << "\tEDIFF: " << ediff << std::endl; 
 	}while((std::fabs(ediff) > scfconv) || (std::fabs(rmsd) > scfconv));
 
@@ -130,6 +131,7 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	results.D = D;
 	results.E = E;
 	results.G = G;
+	results.F = F;
 	
 	return results;
 }

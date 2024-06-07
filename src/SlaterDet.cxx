@@ -34,6 +34,7 @@ void SlaterDet::print(){
 
 void SlaterDet::buildStrings(int norb, int nelec){
 	SlaterDet::codes.norbs=norb;
+	SlaterDet::codes.nelec=nelec;
 
 	int strcnt=choose(norb,nelec);
 	std::vector<bool> permute;
@@ -59,6 +60,53 @@ void SlaterDet::buildStrings(int norb, int nelec){
 	}while(std::prev_permutation(permute.begin(),permute.end()));
 		
 	for(int i = 0; i < 4; i++) SlaterDet::codes.cpystrs[i]=new unsigned char[SlaterDet::codes.codeblklen];
+
+	SlaterDet::buildDecoder();
+}
+
+void SlaterDet::buildDecoder(){
+	SlaterDet::decoder.resize(SlaterDet::codes.norbs-SlaterDet::codes.nelec);
+	for(auto & d: SlaterDet::decoder) d.resize(SlaterDet::codes.nelec+1);
+
+	std::vector<std::vector<int>> xvals;
+	xvals.resize(SlaterDet::decoder.size()+1);
+	for(auto & xv:xvals) xv.resize(SlaterDet::decoder[0].size());
+
+	for(int o = xvals.size()-1;o>=0;o--){
+		for(int e=xvals[0].size()-1;e>=0;e--){
+			if((e+1)>=xvals[o].size()||(o+1)>=xvals.size()){
+				xvals[o][e]=1;
+				continue;
+			}
+			int right = xvals[o][e+1];
+			int down = xvals[o+1][e];
+			xvals[o][e]=right+down;
+		}
+	}
+	for(int o = 0; o < SlaterDet::decoder.size();o++){
+		for(int e = 0; e < SlaterDet::decoder[o].size();e++){
+			SlaterDet::decoder[o][e]=((e+1)>=xvals[o].size())?0:xvals[o][e+1];
+		}
+	}
+}
+
+int SlaterDet::decode(unsigned char* str){
+	int index = 0; 
+	
+	int ce=0, co=0;
+	for(int b = 0; b < SlaterDet::codes.norbs;b++){
+		int codeblock=b/8;
+		unsigned char scan = 1<<(b%8);
+		if(!(str[codeblock]&scan)){
+			index+=SlaterDet::decoder[co][ce];
+			co++;
+		}
+		else{
+			ce++;
+		}
+	}
+
+	return index;
 }
 
 void SlaterDet::printStrings(){
@@ -74,6 +122,7 @@ void SlaterDet::printStrings(){
 }
 
 void SlaterDet::cleanStrings(){
+	std::cout << "CLEANING STRINGS\n";
 	for(int i = 0; i < SlaterDet::codes.strs.size();i++){
 		delete[] SlaterDet::codes.strs[i];
 	}
@@ -85,6 +134,7 @@ void SlaterDet::cleanStrings(){
 }
 
 StringMap SlaterDet::codes=StringMap();
+std::vector<std::vector<int>> SlaterDet::decoder=std::vector<std::vector<int>>();
 
 SlaterCompare compareSlaterDet(SlaterDet & sd1, SlaterDet & sd2){
 	auto & strs=SlaterDet::codes.strs;

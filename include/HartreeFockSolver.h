@@ -30,6 +30,7 @@ public:
 		Matrix C;
 		Matrix D;
 		Matrix G;
+		Matrix F;
 		MatVec E;
 	};
 public:

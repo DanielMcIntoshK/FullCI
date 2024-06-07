@@ -16,12 +16,14 @@
 class FullCISolver{
 	public:
 		struct FCIResults{
+			Matrix eigenvalues;
 			Matrix eigenvectors;
+			Matrix * fullH;
 		};
 	public:
 		FullCISolver(){}
 
-		FullCISolver::FCIResults fci(ModelParams & mp, IntegralChugger & ic, HartreeFockSolver::HFResults &hf);
+		FullCISolver::FCIResults fci(ModelParams & mp, IntegralChugger & ic, HartreeFockSolver::HFResults &hf, double lambda=1.0);
 	
 		void computeHamiltonian();
 		double matrixEl(int x, int y);
@@ -36,6 +38,10 @@ class FullCISolver{
 		int strcnt, cisize, bssize;
 
 		Matrix CIMat;
+
+		bool lambdaDeriv;
+		double lambda;
+		double fockTotal;
 };
 
 #endif

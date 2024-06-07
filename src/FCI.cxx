@@ -2,17 +2,28 @@
 #include <iostream>
 #include <cmath>
 
-FullCISolver::FCIResults FullCISolver::fci(ModelParams & mp, IntegralChugger &ic, HartreeFockSolver::HFResults &hf){
+FullCISolver::FCIResults FullCISolver::fci(ModelParams & mp, IntegralChugger &ic, HartreeFockSolver::HFResults &hf, double lam){
+	lambda=lam;
+	//lambdaDeriv=(std::abs(lambda-1.0)>.000001);
+	lambdaDeriv = true;
+
 	std::cout << "RUNNING FULL CI ENERGY CALCULATION\n";
 	
 	ints=&ic;
 	ints->TransformInts(hf.C);
-	
+	ints->TransformFock(hf.C,hf.G);
+
 	std::cout << "BUILDING SLATER DETERMINANT STRINGS\n";
 	int N=hf.C.rows();
 	int n=mp.nelec/2;
 	SlaterDet::buildStrings(N,n);
 	
+	std::cout << "DECODE TEST:\n";
+	for(int i = 0; i < SlaterDet::codes.strs.size(); i++){
+		std::cout << i << ": " << SlaterDet::decode(SlaterDet::codes.strs[i]) << std::endl;
+	}
+
+
 	strcnt=SlaterDet::codes.strs.size();
 	cisize=strcnt*strcnt;
 	bssize=ints->MOH.rows();
@@ -23,12 +34,12 @@ FullCISolver::FCIResults FullCISolver::fci(ModelParams & mp, IntegralChugger &ic
 	std::cout << "DIAGONALIZING HAMILTONIAN\n";
 	Eigen::SelfAdjointEigenSolver<Matrix> eig_solver(CIMat);
 
-	Matrix CIE=eig_solver.eigenvalues();
-
 	//std::cout << CIE<<std::endl;
 
 	FCIResults fcir;
-	fcir.eigenvectors=CIE;
+	fcir.eigenvalues=eig_solver.eigenvalues();
+	fcir.eigenvectors=eig_solver.eigenvectors();
+	fcir.fullH=&CIMat;
 	return fcir;	
 }
 
@@ -47,13 +58,18 @@ double FullCISolver::matrixEl(int r, int c){
 	int alpha1idx=r%strcnt, beta1idx=r/strcnt,
 	    alpha2idx=c%strcnt, beta2idx=c/strcnt;
 
+	fockTotal=0.0;
+
 	SlaterDet sd1(alpha1idx,beta1idx),sd2(alpha2idx,beta2idx);
 
 	SlaterCompare sc=compareSlaterDet(sd1,sd2);
 
 	double e1 = secondQuantMatel1e(sd1,sd2,sc);
 	double e2 = secondQuantMatel2e(sd1,sd2,sc);
-	double me = e1+e2;
+
+	double H0=e1+fockTotal, V=e2-fockTotal;
+
+	double me = H0+lambda*V;
 
 	return me;
 }
@@ -69,13 +85,18 @@ double FullCISolver::secondQuantMatel1e(SlaterDet & s1, SlaterDet & s2,SlaterCom
 			int b = sc.share[i];
 			int bi = b%bssize;
 
-			val1e+=ints->MOH(bi,bi)*secondQuant1e(s1,s2,b,b,bssize);
+			double sqv=secondQuant1e(s1,s2,b,b,bssize);
+			val1e+=ints->MOH(bi,bi)*sqv;
+			if(lambdaDeriv) fockTotal+=ints->MOG(bi,bi)*sqv;
+			
 		}
 	}break;
 	case 2:{
 		int p=sc.diff[0],r=sc.diff[1];
 		int pi=p%bssize, ri=r%bssize;
-		val1e=ints->MOH(pi,ri)*secondQuant1e(s1,s2,p,r,bssize);
+		double sqv= secondQuant1e(s1,s2,p,r,bssize);
+		val1e=ints->MOH(pi,ri)*sqv;
+		if(lambdaDeriv) fockTotal+=ints->MOG(pi,ri)*sqv;
 	}break;
 	default:break;
 	}

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <list>
 #include <cmath>
+#include <bitset>
 
 #include "HartreeFockSolver.h"
 #include "ModelParams.h"
@@ -10,17 +11,9 @@
 #include "Integrals.h"
 #include "FCI.h" 
 #include "SlaterDet.h"
+#include "Greens.h"
 
 int main(int argc, char** argv){
-	/*SlaterDet::buildStrings(6,3);
-	SlaterDet sd1(0,0), sd2(3,0);
-
-	sd1.print();sd2.print();
-	auto sc = compareSlaterDet(sd1,sd2);
-
-	std::cout << "DIFF: " << sc.diff[0] << " " << sc.diff[1] << std::endl;
-
-	return 0;*/
 	libint2::initialize();
 	
 	if(argc < 2) {std::cout << "NEEDS AN INPUT FILE\n";return -1;}
@@ -45,20 +38,7 @@ int main(int argc, char** argv){
 	BasisBuilder bb;
 	std::string basissetdir = "../basisset/";
 	bb.Build(basissetdir+params.cparams["BASISSET"], params);
-	//std::cout << "Orbital Basis Set Rank = " << bb.bs.nbf() << std::endl;
 	inFile.close();
-
-	/*BasisSet bstest("sto-3g", params.atoms);
-	std::cout << bstest.nbf() << std::endl;
-	for(int i = 0; i < bstest.size();i++){
-		libint2::Shell sh = bstest[i];
-		libint2::Shell sh2= bb.bs[i];
-		std::cout << "SHELL" << i << std::endl;
-		for(int j=0; j < sh.alpha.size(); j++){
-			std::cout << sh.alpha[j] << " " << sh.contr[0].coeff[j]<< " " << sh2.alpha[j] << " " << sh2.contr[0].coeff[j] <<std::endl;
-		}
-		std::cout << std::endl;
-	}*/
 
 	std::cout << "PRELOADING INTEGRALS" << std::endl;
 	IntegralChugger ic(bb.bs,params);
@@ -67,16 +47,19 @@ int main(int argc, char** argv){
 	std::cout << "RUNNING RESTRICTED HF" << std::endl;
 	HartreeFockSolver hfs;
 	HartreeFockSolver::HFResults hfr = hfs.RestrictedHF(params, bb.bs,ic);
-	//HartreeFockSolver::HFResults hfr = hfs.RestrictedHF(params,bstest);
 
 	std::cout << "HARTREE FOCK ENERGY: " << hfr.eelec << std::endl;
 	std::cout << "NUCELAR REPULSE:     " << hfr.enuc << std::endl;
 	std::cout << "TOTAL ENERGY:        " << hfr.eelec+hfr.enuc << std::endl;
 
 	FullCISolver fcis;
-	FullCISolver::FCIResults fcir =fcis.fci(params,ic,hfr);
+	FullCISolver::FCIResults fcir =fcis.fci(params,ic,hfr,1.0);
 
-	std::cout << "FCI E: " << fcir.eigenvectors(0,0) +hfr.enuc << std::endl;
+	std::cout << "FCI E: " << fcir.eigenvalues(0,0) +hfr.enuc << std::endl;
+
+	GreensCalculator gc;
+	gc.computeExcitationSpectra(params,ic,hfr,fcir);
+
 	fcis.cleanup();
 
 	libint2::finalize();
