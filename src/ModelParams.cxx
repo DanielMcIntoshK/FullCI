@@ -63,7 +63,16 @@ int ModelParams::ReadInputFile(std::istream & in){
 
 			std::string mcountline;
 			std::getline(in,mcountline);
-			int mcount=std::stoi(mcountline);
+
+			std::stringstream countunit(mcountline);
+			std::string unit;
+			int mcount=0;
+			countunit >> mcount >> unit;
+
+			double unitconvert=1.0;
+			if(unit=="ANGSTROM") unitconvert=1.889725822;
+
+			//int mcount=std::stoi(mcountline);
 			for(int i = 0; i < mcount; i++){
 				std::string gline;
 				std::getline(in,gline);
@@ -72,13 +81,13 @@ int ModelParams::ReadInputFile(std::istream & in){
 				gs >> a >> x >> y >> z;
 
 				libint2::Atom at;
-				
+
 				for(auto el: ellist){
 					if(a==el.symbol){
 						at.atomic_number=el.Z;
-						at.x=std::stod(x)*1.889725822;
-						at.y=std::stod(y)*1.889725822;
-						at.z=std::stod(z)*1.889725822;
+						at.x=std::stod(x)*unitconvert;
+						at.y=std::stod(y)*unitconvert;
+						at.z=std::stod(z)*unitconvert;
 						break;
 					}
 				}

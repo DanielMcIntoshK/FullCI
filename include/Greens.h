@@ -10,41 +10,46 @@
 #include "HartreeFockSolver.h"
 #include "SlaterDet.h"
 
-struct PHOpp{
-	PHOpp():i{0},j{0}{}
-	PHOpp(int a, int b):i{a},j{b}{}
-	int i, j;
-
-	PHOpp adjoint(){return PHOpp(j,i);}
-};
 
 struct chslater{
 	int index;
 	double sign, c;
 
-	bool operator<(const chslater &chs)const{index<chs.index;}
+	bool operator<(const chslater &chs)const{return index<chs.index;}
+	bool operator==(const chslater &chs)const{return index==chs.index;}
 };
 
 class GreensCalculator{
 public:
 	GreensCalculator();
 
-	void computeExcitationSpectra(ModelParams & mp, IntegralChugger & ic, HartreeFockSolver::HFResults &hf, FullCISolver::FCIResults &fcir);
+	void buildManifold(HartreeFockSolver::HFResults & hf);
 
-private:
+	Matrix ComputeGreens(double E, IntegralChugger & ic, HartreeFockSolver::HFResults &hf, FullCISolver::FCIResults & fcir);
+	Matrix ComputeSelfEnergy(double E, IntegralChugger & ic, HartreeFockSolver::HFResults &hf, FullCISolver::FCIResults &fcir);
+
+public:
+	Matrix buildProp(double E, FullCISolver::FCIResults & fcir);
+	double calcPropEl(double E,PHOp q1, PHOp q2,Matrix &evals, Matrix &evecs);
+	Matrix buildProp_Smart(double E, FullCISolver::FCIResults & fcir);
+	double calcPropEl_Smart(int q1, int q2,Matrix & OM, Matrix & MO, std::vector<double> & Ep, std::vector<double> & Em);
+
 	std::vector<double> computeAvOc_Pure(Matrix state);
+	Matrix computeOverlap(Matrix state);
 	Matrix computeLMatrix(std::vector<double> & ocavs);
 	Matrix computeAMatrix(Matrix state,Matrix ev,Matrix*fullH);
        	Matrix computeBMatrix(Matrix state,Matrix ev,Matrix*fullH);
 
-	double qqH(PHOpp q1, PHOpp q2,Matrix state, double e0);
-	double qHq(PHOpp q1, PHOpp q2,Matrix state, Matrix * fullH);
-private:
+	double qqH(PHOp q1, PHOp q2,Matrix state, double e0);
+	double qHq(PHOp q1, PHOp q2,Matrix state, Matrix * fullH);
+	double qq(PHOp q1, PHOp q2, Matrix state,Matrix * fullH=nullptr);
+	double NqM(PHOp q, Matrix N, Matrix M);
+public:
 	IntegralChugger * ints;
-	std::vector<PHOpp> manifold;
+	std::vector<PHOp> manifold;
 };
 
-double applyPHOpp(PHOpp opp, unsigned char * sd);
+double applyPHOp(PHOp op, unsigned char * alpha, unsigned char * beta);
 
 #endif 
 

@@ -75,7 +75,7 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	Matrix C;
 	Matrix G;
 	Matrix F;
-	MatVec E;
+	Matrix E;
 
 	do{
 		if(++iter > maxiter){
@@ -123,7 +123,7 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 		ediff = ehf - ehf_last;
 		rmsd = (D-D_last).norm();
 		
-		std::cout << "SCF STEP " << iter << "\tENERGY: " << ehf << "\tEDIFF: " << ediff << std::endl; 
+		std::cout << std::setprecision(10)<<"SCF STEP " << iter << "\tENERGY: " << ehf << "\tEDIFF: " << ediff << std::endl; 
 	}while((std::fabs(ediff) > scfconv) || (std::fabs(rmsd) > scfconv));
 
 	results.eelec = ehf;

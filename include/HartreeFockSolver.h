@@ -31,7 +31,7 @@ public:
 		Matrix D;
 		Matrix G;
 		Matrix F;
-		MatVec E;
+		Matrix E;
 	};
 public:
 	HartreeFockSolver();

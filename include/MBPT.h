@@ -10,37 +10,11 @@
 #include "Integrals.h"
 #include "HartreeFockSolver.h"
 
-struct diagram{
-	int size;
-	int nelec;
-	int norb;
+class MBPT_Solver{
+	MBPT_Solver(){}
 
-	std::list<int> structure;
-	int nhole, npart;
-	std::vector<int> hpcount;
-	int chole, cpart;
-
-	diagram(int s, int e);
-	bool permuteDiagram();	
-
-	bool incrementhp();
+	std::vector<Matrix> SolveWavefunction(Matrix & fullH,HartreeFockSolver::HFResults & hfr);
 };
 
-class ArbitraryMBPT{
-public:
-	struct MBPTResults{
-		int degree;
-		std::vector<double> vd; 
-	};
-public:
-	ArbitraryMBPT();
-
-	ArbitraryMBPT::MBPTResults computeMBPT(int degree, int nelec, hfresults &hfr, IntegralChugger & ic);
-
-	double calcDiagram(diagram & d);
-private:
-
-};
-
-#endif 
+#endif
 

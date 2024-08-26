@@ -13,6 +13,14 @@
 #include "HartreeFockSolver.h"
 #include "SlaterDet.h"
 
+struct PHOp{
+	PHOp():i{0},j{0}{}
+	PHOp(int a, int b):i{a},j{b}{}
+	int i,j;
+
+	PHOp adjoint(){return PHOp(j,i);}
+};
+
 class FullCISolver{
 	public:
 		struct FCIResults{
@@ -20,11 +28,18 @@ class FullCISolver{
 			Matrix eigenvectors;
 			Matrix * fullH;
 		};
+		struct MBPTResults{
+			std::vector<Matrix> wavefunctions;
+			std::vector<double> energies;
+		};
 	public:
 		FullCISolver(){}
 
-		FullCISolver::FCIResults fci(ModelParams & mp, IntegralChugger & ic, HartreeFockSolver::HFResults &hf, double lambda=1.0);
-	
+
+		FullCISolver::FCIResults fci(IntegralChugger & ic, HartreeFockSolver::HFResults &hf, double lambda=1.0);
+		FullCISolver::MBPTResults mbpt(HartreeFockSolver::HFResults &hf,int order);
+		std::vector<Matrix> recursivegreen(int order, double E, HartreeFockSolver::HFResults & hf, FullCISolver::MBPTResults & mbptr); 
+
 		void computeHamiltonian();
 		double matrixEl(int x, int y);
 
@@ -33,15 +48,20 @@ class FullCISolver{
 
 		void cleanup();
 	private:
+		int opOnSlater(PHOp op, int det,bool verbose=false);
+
 		IntegralChugger * ints;
 		
 		int strcnt, cisize, bssize;
 
 		Matrix CIMat;
+		Matrix H0;
 
 		bool lambdaDeriv;
 		double lambda;
 		double fockTotal;
+
+		bool fciSuccess=false;
 };
 
 #endif
