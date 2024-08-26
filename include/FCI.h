@@ -48,7 +48,7 @@ class FullCISolver{
 
 		void cleanup();
 	private:
-		int opOnSlater(PHOp op, int det,bool verbose=false);
+		double  opOnSlater(PHOp op, unsigned char * alpha, unsigned char * beta);
 
 		IntegralChugger * ints;
 		

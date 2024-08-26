@@ -184,30 +184,23 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 		za[n]=Matrix::Zero(nstrings,operators.size());
 		for(int r = 0; r <z[n].rows(); r++){
 			for(int c = 0; c < z[n].cols(); c++){
-				double sign=1.0;
-				double signa=1.0;
+				int alphaidx=r%nstrings,betaidx=r/nstrings;
+				unsigned char * alphacpy1=sm.cpystrs[0], *betacpy1=sm.cpystrs[1],
+					*alphacpy2=sm.cpystrs[2], *betacpy2=sm.cpystrs[3];
 
-				int index=opOnSlater(operators[c],r);
-				int indexa=opOnSlater(operators[c].adjoint(),r);
+				memcpy(alphacpy1,sm.strs[alphaidx],sm.codeblklen);
+				memcpy(betacpy1,sm.strs[betaidx],sm.codeblklen);
+				memcpy(alphacpy2,sm.strs[alphaidx],sm.codeblklen);
+				memcpy(betacpy2,sm.strs[betaidx],sm.codeblklen);
 
-				if(index>=nstrings){
-					index=0;
-					sign=0.0;
-				}
-				if(indexa>=nstrings){
-					indexa=0;
-					signa=0.0;
-				}
-				if(index<0){
-					index=-index;
-					sign=-1.0;
-				}
-				if(indexa<0){
-					indexa=-indexa;
-					signa=-1.0;
-				}
-				z[n](r,c) +=sign*mbptr.wavefunctions[n](index,0);
-				za[n](r,c)+=signa*mbptr.wavefunctions[n](indexa,0);
+				double sign1=opOnSlater(operators[c],alphacpy1,betacpy1);
+				double sign2=opOnSlater(operators[c].adjoint(),alphacpy2,betacpy2);
+
+				int index1=SlaterDet::decode(alphacpy1)+nstrings*SlaterDet::decode(betacpy1);
+				int index2=SlaterDet::decode(alphacpy2)+nstrings*SlaterDet::decode(betacpy2);
+
+				z[n](r,c) +=sign1*mbptr.wavefunctions[n](index1,0);
+				za[n](r,c)+=sign2*mbptr.wavefunctions[n](index2,0);
 			}
 		}
 		std::cout << "CALCULATING D\n";
@@ -237,15 +230,21 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 	}
 	Matrix G_0=Matrix::Zero(operators.size(),operators.size());
 	for(int i = 0; i < G_0.rows();i++){
-		int index1=opOnSlater(operators[i],0);
-		int index2=opOnSlater(operators[i].adjoint(),0);
+		unsigned char * alphacpy1=sm.cpystrs[0], *betacpy1=sm.cpystrs[1],
+				*alphacpy2=sm.cpystrs[2], *betacpy2=sm.cpystrs[3];
+		
+		for(int i = 0; i < 4; i++)memcpy(sm.cpystrs[i],sm.strs[0],sm.codeblklen);
+
+
+		double sign1=opOnSlater(operators[i],alphacpy1,betacpy1);
+		double sign2=opOnSlater(operators[i].adjoint(),alphacpy2,betacpy2);
 		std::cout << "G_0 values: " << operators[i].i << " " << operators[i].j << " ";
-		if(index1<nstrings){
+		if(sign1!=0.0){
 			std::cout << "1:"<<E<<":"<<hfr.E(operators[i].i%sm.norbs,0)<<":"<<hfr.E(operators[i].j%sm.norbs)<<":";
 			G_0(i,i)+=1.0/(E-hfr.E(operators[i].i%sm.norbs,0)+hfr.E(operators[i].j%sm.norbs,0));
 			std::cout <<  G_0(i,i) << " ";
 		}
-		if(index2<nstrings){
+		if(sign2!=0.0){
 			std::cout << "2:"<<E<<":"<<hfr.E(operators[i].i%sm.norbs,0)<<":"<<hfr.E(operators[i].j%sm.norbs)<<":";
 			G_0(i,i)-=1.0/(E+hfr.E(operators[i].i%sm.norbs,0)-hfr.E(operators[i].j%sm.norbs,0));
 			std::cout << G_0(i,i);
@@ -406,14 +405,14 @@ void FullCISolver::cleanup(){
 	CIMat=Matrix(0,0);
 }
 
-int FullCISolver::opOnSlater(PHOp op, int det,bool verbose){
+double FullCISolver::opOnSlater(PHOp op,unsigned char * alpha, unsigned char * beta){
 	StringMap & sm = SlaterDet::codes;
-	int alphaidx=det%sm.strs.size(),betaidx=det/sm.strs.size();
-	
-	unsigned char * alphacpy = sm.cpystrs[0],*betacpy=sm.cpystrs[1];
-
-	memcpy(alphacpy,sm.strs[alphaidx],sm.codeblklen);
-	memcpy(betacpy,sm.strs[betaidx],sm.codeblklen);
+	//int alphaidx=det%sm.strs.size(),betaidx=det/sm.strs.size();
+	//
+	//unsigned char * alphacpy = sm.cpystrs[0],*betacpy=sm.cpystrs[1];
+	//
+	//memcpy(alphacpy,sm.strs[alphaidx],sm.codeblklen);
+	//memcpy(betacpy,sm.strs[betaidx],sm.codeblklen);
 	
 
 	double sign = 1.0;
@@ -423,7 +422,7 @@ int FullCISolver::opOnSlater(PHOp op, int det,bool verbose){
 	int ibase = op.i-SlaterDet::codes.norbs*isalpha,
 	    jbase = op.j-SlaterDet::codes.norbs*isalpha;
 
-	unsigned char * sd = (isalpha==0)?alphacpy:betacpy;
+	unsigned char * sd = (isalpha==0)?alpha:beta;
 	
 	int iblock=ibase/8,ioff=ibase%8,
 	    jblock=jbase/8,joff=jbase%8;
@@ -438,7 +437,7 @@ int FullCISolver::opOnSlater(PHOp op, int det,bool verbose){
 		sign*=(lowercount%2==0)?1.0:-1.0;
 		sd[iblock]=sd[iblock]^(1<<ioff);
 	}
-	else return sm.strs.size()*sm.strs.size();
+	else return 0.0;
 
 	if(!(sd[jblock]&(1<<joff))){
 		int lowercount=(isalpha==0)?0:SlaterDet::codes.nelec;
@@ -450,8 +449,9 @@ int FullCISolver::opOnSlater(PHOp op, int det,bool verbose){
 		sign*=(lowercount%2==0)?1.0:-1.0;
 		sd[jblock]=sd[jblock]|(1<<joff);
 	}
-	else return sm.strs.size()*sm.strs.size();
+	else return 0.0;
 
-	return sign*(SlaterDet::decode(alphacpy)+sm.strs.size()*SlaterDet::decode(betacpy));
+	//return sign*(SlaterDet::decode(alphacpy)+sm.strs.size()*SlaterDet::decode(betacpy));
+	return sign;
 }
 
