@@ -25,7 +25,6 @@ void GreensCalculator::buildManifold(HartreeFockSolver::HFResults & hf){
 
 Matrix GreensCalculator::ComputeGreens(double E, IntegralChugger & ic, HartreeFockSolver::HFResults & hf, FullCISolver::FCIResults & fcir){
 	ints= &ic;
-	StringMap & sm = SlaterDet::codes;
 	Matrix prop=buildProp_Smart(E,fcir);
 	return prop;
 }
@@ -50,174 +49,40 @@ Matrix GreensCalculator::ComputeSelfEnergy(double E, IntegralChugger & ic, Hartr
 	Matrix G0i=Matrix::Identity(manifold.size(),manifold.size())*0.2-ep;
 	
 	return G0i-inverse;
-	
-
-	/*
-	int steps=100;
-	double base=0.0;
-	double range=1.0;
-	for(int i = 0; i < ep.rows(); i++){
-		double Eval=base+range/(double)steps*(double)i;
-		double Evaln=base+range/(double)steps*(double)(i+1);
-		Eval=exactspectra[i]+0.00000001;
-		Eval=ep(i,i);
-		std::cout << manifold[i].i << " " << manifold[i].j << std::endl;
-		Matrix propi=buildProp_Smart(Eval,fcir);
-		Eigen::FullPivLU<Matrix> lu(propi);
-		Matrix inverse=lu.inverse();
-		Matrix G0i=ep-Matrix::Identity(manifold.size(),manifold.size())*Eval;
-		
-		Matrix selfEnergy=G0i-inverse;
-		
-		//continue;
-		
-		Eigen::EigenSolver<Matrix> isolver(ep-selfEnergy);
-		closestE=isolver.eigenvalues()(0,0).real();
-		double diff=std::abs(Eval-closestE);
-		double diffs=Eval-closestE;
-		//diff=-1;
-
-
-		for(int i = 1; i < isolver.eigenvalues().rows();i++){
-			//std::cout << isolver.eigenvalues()(i,0).real() << std::endl;
-			double norm = std::abs(isolver.eigenvalues()(i,0));
-			if(std::abs(Eval-isolver.eigenvalues()(i,0).real())<diff){
-				//std::cout << "PREV: " << closestE << " " << diff <<std::endl;
-				closestE=isolver.eigenvalues()(i,0).real();
-				diff=std::abs(Eval-closestE);
-				diffs=Eval-closestE;
-				closesti=i;
-			}
-		}
-		//break;
-		//std::cout << Eval << " " <<diffs<<" "<< closestE<<std::endl;
-		
-		std::cout << Eval << std::endl;
-		for(int j = 0; j < isolver.eigenvalues().rows();j++){
-			double norm = std::abs(isolver.eigenvalues()(j,0));
-			if(j==closesti){
-				std::cout << i<<" * "<<closesti <<" ";;
-				std::cout << norm<< " " << isolver.eigenvalues()(j,0) <<std::endl;
-			}
-		}
-		std::cout << std::endl;
-	}
-	return;
-	do{
-		Euse=closestE;
-
-		Matrix prop=buildProp_Smart(Euse,fcir);
-
-		Eigen::FullPivLU<Matrix> lu(prop);
-
-		if(!lu.isInvertible()){
-			std::cout << "NOT INVERTABLE\n";
-			break;
-		}
-		else{
-			std::cout << "IS INVERTABLE\n";
-		}
-		Matrix inverse = lu.inverse();
-	
-		Matrix G0i=ep-Matrix::Identity(manifold.size(),manifold.size())*Euse;
-
-		Matrix selfEnergy=G0i-inverse;
-
-		Eigen::EigenSolver<Matrix> isolver(selfEnergy-ep);
-	
-		closestE=isolver.eigenvalues()(0,0).real();
-		double diff=std::abs(Euse-closestE);
-
-		for(int i = 1; i < isolver.eigenvalues().rows();i++){
-			if(std::abs(Euse-isolver.eigenvalues()(i,0).real())<diff){
-				closestE=isolver.eigenvalues()(i,0).real();
-				diff=std::abs(Euse-closestE);
-				closesti=i;
-			}
-		}
-		std::cout << closestE << " " <<closesti << std::endl;
-	}while(std::abs(Euse-closestE)>0.0001&&false);
-	std::cout << "CONVERGED ENERGY: " <<Euse <<std::endl;
-	for(int i = 0; i < manifold.size();i++){
-		double epi=hf.E(manifold[i].j%sm.norbs,0)-hf.E(manifold[0].i%sm.norbs,0);
-		Matrix propi=buildProp_Smart(epi,fcir);
-		Eigen::FullPivLU<Matrix> lu(propi);
-		Matrix inverse=lu.inverse();
-		Matrix G0i=ep-Matrix::Identity(manifold.size(),manifold.size())*epi;
-		Matrix selfEnergy=G0i-inverse;
-		std::cout << epi+selfEnergy(i,i)<<std::endl;
-
-	}
-	*/
-	
-	/*
-	std::cout << "CHECKING HERMITICITY\n";
-	bool hermition=true;
-	for(int i = 0; i < prop.rows();i++){
-	for(int j = 0; j < prop.cols();j++){
-		if(std::abs(ip(i,j)-ip(j,i))>0.000001){
-			hermition=false;
-			std::cout << "HERMITICITY FAIL AT: " << i << " " << j<<std::endl;
-		}
-	}
-	}
-	*/
-	
-}
-
-Matrix GreensCalculator::buildProp(double E, FullCISolver::FCIResults & fcir){
-	StringMap & sm = SlaterDet::codes;
-	std::vector<PHOp> operators;
-	for(int s = 0; s < 2; s++){
-	for(int i = 0; i < sm.norbs; i++){
-		for(int j = 0; j < sm.norbs;j++){
-			//if(i!=j){
-				operators.push_back(PHOp(i+sm.norbs*s,j+sm.norbs*s));
-			//}
-		}
-	}
-	}
-	std::cout << "OPERATORS BUILT\n";
-
-	Matrix prop(operators.size(),operators.size());
-	for(int i = 0; i<operators.size();i++){
-		std::cout << "\r[";
-		double percent = (double)i/(double)operators.size()*15.0;
-		for(int p=0;p<percent;p++){
-			std::cout << "*";
-		}
-		for(int p=percent+1;p<15;p++){
-			std::cout << "-";
-		}
-		std::cout <<"]\n";
-		
-		for(int j = 0; j < operators.size();j++){
-			//std::cout << "CALCULATING FOR OPERATOR: " << operators[i].i << ":"<<operators[i].j << " " << operators[j].i << ":"<<operators[j].j<<std::endl;
-			prop(i,j)=calcPropEl(E,operators[i],operators[j],fcir.eigenvalues,fcir.eigenvectors);
-		}
-	}
-	return prop;
 }
 
 Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fcir){
 	StringMap & sm = SlaterDet::codes;
+	
+	//std::vector<double> GreensCalculator::computeAvOc_Pure(Matrix state){
+	std::vector<double> oc=computeAvOc_Pure(fcir.eigenvectors.col(0));
+	manifold.clear();
+	for(int s = 0; s < 2; s++){
+	for(int i = 0; i < sm.norbs; i++){
+		for(int j = 0; j < sm.norbs; j++){
+			//if(oc[i]>oc[j]){
+				manifold.push_back(PHOp(i+sm.norbs*s,j+sm.norbs*s));
+			//}
+		}}
+	}
+
 
 	Matrix & evecs = fcir.eigenvectors;
 	Matrix & evals = fcir.eigenvalues;
 
-	Matrix OM(manifold.size(),evecs.rows()-1), MO(manifold.size(),evecs.rows()-1);
+	Matrix OM(manifold.size(),evecs.rows()), MO(manifold.size(),evecs.rows());
 	for(int i = 0; i < manifold.size();i++){
-		for(int j = 1; j < fcir.eigenvectors.rows();j++){
-			OM(i,j-1)=NqM(manifold[i],evecs.col(0),evecs.col(j));
-			MO(i,j-1)=NqM(manifold[i],evecs.col(j),evecs.col(0));
+		for(int j = 0; j < fcir.eigenvectors.rows();j++){
+			OM(i,j)=NqM(manifold[i],evecs.col(0),evecs.col(j));
+			MO(i,j)=NqM(manifold[i],evecs.col(j),evecs.col(0));
 		}
 	}
 	std::vector<double> Ep,Em;
-	Ep.resize(evecs.rows()-1);Em.resize(evecs.rows()-1);
-	for(int i = 1; i < evecs.rows();i++){
+	Ep.resize(evecs.rows());Em.resize(evecs.rows());
+	for(int i = 0; i < evecs.rows();i++){
 		double w0M=evals(i,0)-evals(0,0);
-		Ep[i-1]=1.0/(E+w0M);
-		Em[i-1]=1.0/(E-w0M);
+		Ep[i]=1.0/(E+w0M);
+		Em[i]=1.0/(E-w0M);
 	}
 
 	Matrix prop(manifold.size(),manifold.size());
@@ -229,25 +94,10 @@ Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fc
 	return prop;
 }
 
-double GreensCalculator::calcPropEl(double E, PHOp q1, PHOp q2, Matrix &evals, Matrix &evecs){
-	double val = 0.0;
-	for(int i = 1; i < evecs.rows(); i++){
-		double w0M=evals(i,0)-evals(0,0);
-
-		double residue1=NqM(q1,evecs.col(0),evecs.col(i));
-		double residue2=NqM(q2,evecs.col(i),evecs.col(0));
-		double residue3=NqM(q2,evecs.col(0),evecs.col(i));
-		double residue4=NqM(q1,evecs.col(i),evecs.col(0));
-
-		val+=((residue1*residue2)/(E-w0M))-((residue3*residue4)/(E+w0M));
-	}
-	return val;
-}
-
-double GreensCalculator::calcPropEl_Smart(int q1, int q2,Matrix & OM, Matrix & MO, std::vector<double> & Ep, std::vector<double> & Em){
+double GreensCalculator::calcPropEl_Smart(int p, int q,Matrix & OM, Matrix & MO, std::vector<double> & Ep, std::vector<double> & Em){
 	double val=0.0;
-	for(int i = 0; i < OM.cols();i++){
-		val+=(OM(q1,i)*MO(q2,i))*Em[i]-(OM(q2,i)*MO(q1,i))*Ep[i];
+	for(int n = 1; n < OM.cols();n++){
+		val+=(MO(p,n)*MO(q,n))*Em[n]-(OM(q,n)*OM(p,n))*Ep[n];
 	}
 	return val;
 }

@@ -84,39 +84,56 @@ int main(int argc, char** argv){
 	}
 	std::cout << EFC+hfr.enuc << std::endl;
 
-	double E=-0.02;
+	double E=-0.2;
+	
 	
 	std::vector<Matrix> greens=fcis.recursivegreen(order,E,hfr,mbptr);
 	Matrix rg=greens[0];
+	std::cout << "0th order: \n";
+	std::cout << greens[0] << std::endl<< std::endl << " " << rg(1,2) << std::endl;
 	for(int i = 1; i <=order; i++){
 		rg+=greens[i];
 		std::cout << i << "th order:\n";
 		std::cout << greens[i] << std::endl<<std::endl;
+		std::cout << " " <<rg(1,2) << std::endl;
 	}
+
+	std::cout << "RECURSIVE GREEN'S COMPLETE\n";
 	
+
 	//std::cout << std::setprecision(3) << greens[0] <<std::endl;
 	//std::cout << std::setprecision(2)<< greens[1] << std::endl << std::endl;
 
+	std::cout << "ATEMPTING TO BUILD FULL GREEN'S FUNCTION\n";
 	GreensCalculator gr;
 	gr.buildManifold(hfr);
 	Matrix greensfull=gr.ComputeGreens(E,ic,hfr,fcir);
 
 	std::cout << "RECURSIVEGREEN\n";
-	std::cout << rg << std::endl;
+	std::cout << rg << std::endl<< " " <<rg(0,0) << " " << rg(0,1) << " " <<  rg(1,2) << std::endl;
 	
 	//for(int i = 0; i < rg.rows();i++){
 	//	std::cout << rg(i,i) << std::endl;
 	//}
 
 	std::cout << std::endl <<std::endl << std::endl << "FULLGREEN\n";
+	/*
 	for(int i = 0; i < greensfull.rows();i++){
 	for(int j = 0; j < greensfull.cols();j++){
 		if(greensfull(i,j)<0.000001)greensfull(i,j)=0.0;
 	}
 	}
+	*/
 	std::cout << greensfull << std::endl;
 
-	/*
+	int p=2, q=1;
+	
+	std::cout << "EXACT: " <<greensfull(p,q) << std::endl;
+	double val = 0;
+	for(int i = 0; i <= order; i++){
+		val+= greens[i](p,q);
+		std::cout << i << ": " << val <<  " " << greens[i](p,q) << " " << greens[i](q,p) <<  std::endl;
+	}
 
 	LambdaDeriv ld;
 	std::vector<double> grid;
@@ -126,15 +143,18 @@ int main(int argc, char** argv){
 		grid.push_back(gridspace*i);
 		grid.push_back(-gridspace*i);
 	}
-	Matrix se=ld.ComputeSelfEnergyOrder(0, 0, grid, hfr,ic);
-	for(int i = 0; i < se.rows();i++){
-		for(int j = 0; j<se.cols();j++){
-			if(se(i,j)<0.0000001) se(i,j)=0.0;
-		}
+	std::vector<Matrix> greensnum=ld.ComputeGreensNumerical(7,0.0,grid,hfr,ic,E);
+	/*
+	for(int i = 0; i < greensnum.size();i++){
+		std::cout << "GREENS NUM " << i << "\n";
+		std::cout << greensnum[i] << std::endl<<std::endl;
 	}
-
-	std::cout << se << std::endl;
 	*/
+	Matrix greensNum=greensnum[0];
+	for(int i = 1; i <= 7; i++){
+		greensNum+=greensnum[i];
+	}
+	std::cout << "GREENS NUM\n" << greensNum << std::endl << std::endl;
 
 	fcis.cleanup();
 	SlaterDet::cleanStrings();

@@ -8,7 +8,10 @@ public:
 	LambdaDeriv(){}
 
 	Matrix ComputeSelfEnergyOrder(int M, double x0, std::vector<double> grid, HartreeFockSolver::HFResults hfr,IntegralChugger & ic);	
+
+	std::vector<Matrix> ComputeGreensNumerical(int M, double x0, std::vector<double> grid, HartreeFockSolver::HFResults hfr, IntegralChugger & ic,double E);
 private:
+	std::vector<Matrix> generateDeltas(int M, int N, double x0, std::vector<double> &grid);
 };
 
 #endif
