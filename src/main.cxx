@@ -13,6 +13,7 @@
 #include "SlaterDet.h"
 #include "Greens.h"
 #include "LambdaDeriv.h"
+#include "PoleSearch.h"
 
 int main(int argc, char** argv){
 	libint2::initialize();
@@ -67,7 +68,16 @@ int main(int argc, char** argv){
 	FullCISolver::FCIResults fcir =fcis.fci(ic,hfr,1.0);
 
 	std::cout << "FCI E: " << fcir.eigenvalues(0,0) +hfr.enuc << std::endl;
+	
+	double E=-0.2;
 
+	std::cout << "ATEMPTING TO BUILD FULL GREEN'S FUNCTION\n";
+	GreensCalculator gr;
+	std::vector<double> avocc=gr.computeAvOc_Pure(fcir.eigenvectors.col(0));
+	fcis.buildOperators(avocc,hfr);
+	gr.buildOperators(avocc,hfr);
+	Matrix greensfull=gr.ComputeGreens(E,ic,hfr,fcir);
+	
 	int order=14;
 	FullCISolver::MBPTResults mbptr=fcis.mbpt(hfr,order);
 
@@ -84,7 +94,6 @@ int main(int argc, char** argv){
 	}
 	std::cout << EFC+hfr.enuc << std::endl;
 
-	double E=-0.2;
 	
 	
 	std::vector<Matrix> greens=fcis.recursivegreen(order,E,hfr,mbptr);
@@ -100,30 +109,11 @@ int main(int argc, char** argv){
 
 	std::cout << "RECURSIVE GREEN'S COMPLETE\n";
 	
-
-	//std::cout << std::setprecision(3) << greens[0] <<std::endl;
-	//std::cout << std::setprecision(2)<< greens[1] << std::endl << std::endl;
-
-	std::cout << "ATEMPTING TO BUILD FULL GREEN'S FUNCTION\n";
-	GreensCalculator gr;
-	gr.buildManifold(hfr);
-	Matrix greensfull=gr.ComputeGreens(E,ic,hfr,fcir);
-
 	std::cout << "RECURSIVEGREEN\n";
 	std::cout << rg << std::endl<< " " <<rg(0,0) << " " << rg(0,1) << " " <<  rg(1,2) << std::endl;
 	
-	//for(int i = 0; i < rg.rows();i++){
-	//	std::cout << rg(i,i) << std::endl;
-	//}
 
 	std::cout << std::endl <<std::endl << std::endl << "FULLGREEN\n";
-	/*
-	for(int i = 0; i < greensfull.rows();i++){
-	for(int j = 0; j < greensfull.cols();j++){
-		if(greensfull(i,j)<0.000001)greensfull(i,j)=0.0;
-	}
-	}
-	*/
 	std::cout << greensfull << std::endl;
 
 	int p=2, q=1;
@@ -135,26 +125,41 @@ int main(int argc, char** argv){
 		std::cout << i << ": " << val <<  " " << greens[i](p,q) << " " << greens[i](q,p) <<  std::endl;
 	}
 
+	//CALCULATE GREENS FUNCTION NUMERICALLY
 	LambdaDeriv ld;
 	std::vector<double> grid;
 	double gridspace=0.01;
 	grid.push_back(0.0);
-	for(int i = 1; i <=3; i++){
+	int lambdaorder = 6;
+	for(int i = 1; i <=lambdaorder/2; i++){
 		grid.push_back(gridspace*i);
 		grid.push_back(-gridspace*i);
 	}
-	std::vector<Matrix> greensnum=ld.ComputeGreensNumerical(7,0.0,grid,hfr,ic,E);
-	/*
-	for(int i = 0; i < greensnum.size();i++){
-		std::cout << "GREENS NUM " << i << "\n";
-		std::cout << greensnum[i] << std::endl<<std::endl;
-	}
-	*/
+	std::vector<Matrix> greensnum=ld.ComputeGreensNumerical(lambdaorder,0.0,grid,hfr,ic,avocc,E);
+	
+	std::cout << "GREENS NUMERICAL\n";
 	Matrix greensNum=greensnum[0];
-	for(int i = 1; i <= 7; i++){
+	std::cout << "0th:\n" << greensnum[0]<<std::endl<<std::endl;
+	for(int i = 1; i <= lambdaorder; i++){
+		std::cout << i<<"th:\n" << greensnum[i]<<std::endl<<std::endl;
 		greensNum+=greensnum[i];
 	}
-	std::cout << "GREENS NUM\n" << greensNum << std::endl << std::endl;
+	std::cout << "SUM\n" << greensNum << std::endl << std::endl;
+
+	for(int i = 1; i < fcir.eigenvalues.rows();i++){
+		std::cout << std::setprecision(6) <<fcir.eigenvalues(i,0)-fcir.eigenvalues(0,0) << std::endl;
+	}
+	Matrix oEdiff=Matrix::Zero(fcis.operators.size(),fcis.operators.size());
+	for(int i = 0; i < fcis.operators.size(); i++){
+		int norbs=SlaterDet::codes.norbs;
+		oEdiff(i,i)=hfr.E(gr.operators[i].j%norbs,0)-hfr.E(gr.operators[i].i%norbs,0);
+	}
+	std::cout << "SELF ENERGIES CLOSET EIGEN\n";
+
+	PoleSearch pls(&fcis, & gr, &ic);
+	double mid=1.0047;
+	double spread=0.1;
+	pls.scan(mid-spread/2.0, spread/1000.0,1000,fcir,mbptr,hfr, "Output/scan");
 
 	fcis.cleanup();
 	SlaterDet::cleanStrings();

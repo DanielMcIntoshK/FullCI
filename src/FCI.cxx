@@ -125,6 +125,10 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 		std::cout << "ERROR: CANNOT PERFORM GREENS CALCULATION TO " << order << "th ORDER WITH ONLY " << mbptr.wavefunctions.size() << " MBPT ORDER CALCULATION...\nMUST BE GREATER THAN OR EQUAL TO DESIRED GREENS FUNCTION ORDER\n";
 		return std::vector<Matrix>();
 	}
+	if(operators.empty()){
+		std::cout << "ERROR: CANOT PERFORM GREENS CALCULATION WITHOUT CONSTRUCTING OPERATORS FIRST\n";
+		return std::vector<Matrix>();
+	}
 
 	//double pm=(pos)?1.0:-1.0;
 
@@ -143,12 +147,12 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 		Gm_p[0](i,i)=1.0/(E+H0(i,i)-H0(0,0));
 		Gm_n[0](i,i)=1.0/(E-H0(i,i)+H0(0,0));	
 	}
-	std::cout << std::setprecision(3) << H0 -H0(0,0)*Matrix::Identity(cisize,cisize)<< std::endl << std::endl;
-	std::cout << "MIDDLE Naughts:\n" << Gm_p[0] << "\n\n"<<Gm_n[0]<<"\n\n";
+	//std::cout << std::setprecision(3) << H0 -H0(0,0)*Matrix::Identity(cisize,cisize)<< std::endl << std::endl;
+	//std::cout << "MIDDLE Naughts:\n" << Gm_p[0] << "\n\n"<<Gm_n[0]<<"\n\n";
 
-	std::cout << 1.0/(-.2-H0(10,10)+H0(0,0)) << std::endl;
+	//std::cout << 1.0/(-.2-H0(10,10)+H0(0,0)) << std::endl;
 	int aix = 10%strcnt, bix=10/strcnt;
-	std::cout << std::bitset<8>(sm.strs[aix][0]) << " " << std::bitset<8>(sm.strs[bix][0]) << std::endl;
+	//std::cout << std::bitset<8>(sm.strs[aix][0]) << " " << std::bitset<8>(sm.strs[bix][0]) << std::endl;
 
 	for(int n = 1; n <=order;n++){
 		Gm_p[n]=Matrix::Zero(cisize,cisize);
@@ -164,6 +168,7 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 	}
 
 	//Now the full Green's function
+	/*
 	std::vector<PHOp> operators;
 	for(int s = 0; s<2; s++){
 		for(int i = 0; i < sm.norbs; i++){
@@ -172,6 +177,7 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 			}
 		}
 	}
+	*/
 
 	std::vector<Matrix> G_n;
 	G_n.resize(order+1);
@@ -183,8 +189,8 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 	D.resize(order+1);
 	
 	for(int n = 0; n <= order; n++){
-		std::cout << "CALCULATING G_" << n << std::endl;
-		std::cout << "CALCULATING z\n";
+		//std::cout << "CALCULATING G_" << n << std::endl;
+		//std::cout << "CALCULATING z\n";
 		z[n]=Matrix::Zero(cisize,operators.size());
 		za[n]=Matrix::Zero(cisize,operators.size());
 		for(int r = 0; r <z[n].rows(); r++){
@@ -208,12 +214,12 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 				if(index2!=-1) za[n](r,c)+=sign2*mbptr.wavefunctions[n](index2,0);
 			}
 		}
-		std::cout << "CALCULATING D\n";
+		//std::cout << "CALCULATING D\n";
 		D[n]=0.0;
 		for(int i=0; i <= n; i++){
 			D[n]+=(mbptr.wavefunctions[i].transpose()*mbptr.wavefunctions[n-i])(0,0);
 		}
-		std::cout << "CALCULATING G\n";
+		//std::cout << "CALCULATING G\n";
 		G_n[n]=Matrix::Zero(operators.size(),operators.size());
 		Matrix G_f=Matrix::Zero(operators.size(), operators.size()),
 			G_r=Matrix::Zero(operators.size(), operators.size());
@@ -221,26 +227,13 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 		for(int j = 0; j <= n-i; j++){
 				G_f=za[i].transpose()*Gm_n[j]*za[n-i-j];
 				G_r=z[i].transpose()*Gm_p[j]*z[n-i-j];
-				if(n==0){
-					std::cout << "COMESEE\n" << std::endl;
-					std::cout << za[i].col(3) << std::endl;
-					for(int k = 0; k < G_f.rows(); k++){
-						std::cout << k << " " <<G_f(k,k) << " " << G_r(k,k)<<std::endl;
-					}
-
-				}
 				G_n[n]+=G_f-G_r.transpose();
 			}
 			if(i>0) G_n[n]-=D[i]*G_n[n-i];
 		}
 	}
 	//std::cout << std::setprecision(3) <<z[0] << std::endl << std::endl << za[0] << std::endl << std::endl; 
-
-	std::cout << "HARTREE FOCK ENERGIES\n";
-	for(int i =0; i < hfr.E.rows(); i++){
-		std::cout << i << " " <<  hfr.E(i,0)<<std::endl;
-
-	}
+	/*
 	Matrix G_0=Matrix::Zero(operators.size(),operators.size());
 	for(int i = 0; i < G_0.rows();i++){
 		unsigned char * alphacpy1=sm.cpystrs[0], *betacpy1=sm.cpystrs[1],
@@ -267,18 +260,34 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 		}
 		std::cout << std::endl;
 	}
-
-	std::cout <<"#\ti\tj\tG0\tCalc: " << std::endl;
-	for(int i = 0; i < G_0.rows();i++){
-		std::cout << i<< "\t" <<operators[i].i << "\t" << operators[i].j << "\t"<<G_0(i,i)<<"\t"<<G_n[0](i,i)<<std::endl;
-		
-	}
-	//std::cout << "G0 Mat:\n"<<G_n[0]<<std::endl << std::endl;
-	//std::cout << "z0:\n" << z[0] << std::endl << std::endl;
-	//std::cout << "za0:\n" << za[0] << std::endl << std::endl;
+	*/
 
 	return G_n;
 }
+
+void FullCISolver::buildOperators(std::vector<double> avocc, HartreeFockSolver::HFResults &hf){
+	StringMap & sm = SlaterDet::codes;
+	operators.clear();
+	for(int s = 0; s<2; s++){
+		for(int i = 0; i < sm.norbs; i++){
+			for(int j = 0; j < sm.norbs; j++){
+				if((i!=j)&&(avocc[i]>avocc[j])){
+					operators.push_back(PHOp(i+sm.norbs*s,j+sm.norbs*s));	
+				}
+			}
+		}
+	}
+	/*operators.clear();
+	for(int s = 0; s<2; s++){
+		for(int i = 0; i < sm.nelec;i++){
+			for(int r = sm.nelec; r < sm.norbs; r++){
+				operators.push_back(PHOp(i+sm.norbs*s, r+sm.norbs*s));
+			}
+		}
+	}
+	*/
+}
+
 
 void FullCISolver::computeHamiltonian(){
 	std::cout << "COMPUTING FCI HAMILTONIAN\n";

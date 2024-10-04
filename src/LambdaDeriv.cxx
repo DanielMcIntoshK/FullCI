@@ -1,19 +1,23 @@
 #include "LambdaDeriv.h"
 #include "FCI.h"
 
-Matrix LambdaDeriv::ComputeSelfEnergyOrder(int M, double x0, std::vector<double> grid, HartreeFockSolver::HFResults hfr, IntegralChugger & ic){
+Matrix LambdaDeriv::ComputeSelfEnergyOrder(int M, double x0, std::vector<double> grid, HartreeFockSolver::HFResults hfr, IntegralChugger & ic, double E){
 	int N = grid.size()-1;
 	std::cout << M  <<" " << N << " " << x0 << " " ;
 	for(auto x: grid)std::cout << x << " ";
 	std::cout << std::endl;
 	std::vector<Matrix> ldet;
 	ldet.resize(N+1);
+
 	for(int i = 0; i < ldet.size();i++){
 		FullCISolver fcis;
+		fcis.buildOperators(std::vector<double>(),hfr);
 		FullCISolver::FCIResults fcir = fcis.fci(ic,hfr,grid[i]);
 		
 		GreensCalculator gc;
-		ldet[i]=gc.ComputeSelfEnergy(.2,ic,hfr,fcir);
+		gc.buildOperators(std::vector<double>(),hfr);
+		Matrix G = gc.ComputeGreens(E, ic, hfr,fcir);
+		ldet[i]=gc.ComputeSelfEnergy(E,hfr,G);
 		fcis.cleanup();
 	}
 
@@ -50,16 +54,19 @@ Matrix LambdaDeriv::ComputeSelfEnergyOrder(int M, double x0, std::vector<double>
 	return selfenergy;
 }
 
-std::vector<Matrix> LambdaDeriv::ComputeGreensNumerical(int M, double x0, std::vector<double> grid, HartreeFockSolver::HFResults hfr, IntegralChugger & ic, double E){
+std::vector<Matrix> LambdaDeriv::ComputeGreensNumerical(int M, double x0, std::vector<double> grid, HartreeFockSolver::HFResults hfr, IntegralChugger & ic,std::vector<double> avoc, double E){
 	int N = grid.size()-1;
 	std::vector<Matrix> deltas{generateDeltas(M,N,x0,grid)};
+	std::cout << "DELTAS: " << deltas.size() << std::endl;
 	std::vector<Matrix> ldet;
 	ldet.resize(N+1);
 	for(int i = 0; i < ldet.size(); i++){
 		FullCISolver fcis;
+		fcis.buildOperators(avoc,hfr);
 		FullCISolver::FCIResults fcir = fcis.fci(ic,hfr,grid[i]);
 
 		GreensCalculator gc;
+		gc.buildOperators(avoc,hfr);
 		ldet[i]=gc.ComputeGreens(E,ic,hfr,fcir);
 		fcis.cleanup();
 	}
@@ -67,11 +74,11 @@ std::vector<Matrix> LambdaDeriv::ComputeGreensNumerical(int M, double x0, std::v
 	std::vector<Matrix> greens;
 	greens.resize(M+1);
 	greens[0]=ldet[0];
-	for(int i = 0; i < ldet[0].rows(); i++){
-	for(int j = 0; j < ldet[0].cols();j++){
-		if(std::abs(greens[0](i,j))<0.000000001) greens[0](i,j)=0.0;
-	}
-	}
+	//for(int i = 0; i < ldet[0].rows(); i++){
+	//for(int j = 0; j < ldet[0].cols();j++){
+	//	if(std::abs(greens[0](i,j))<0.000000001) greens[0](i,j)=0.0;
+	//}
+	//}
 	double factorial=1.0;
 	for(int m = 1; m <= M; m++){
 		Matrix gr=Matrix::Zero(ldet[0].rows(),ldet[0].cols());
@@ -82,6 +89,13 @@ std::vector<Matrix> LambdaDeriv::ComputeGreensNumerical(int M, double x0, std::v
 		}
 		gr*=1.0/factorial;
 		greens[m]=gr;
+	}
+	for(int i = 0; i < greens.size(); i++){
+		for(int r = 0; r < greens[i].rows(); r++){
+			for(int c = 0; c < greens[i].cols(); c++){
+				if(std::abs(greens[i](r,c))<0.000000000001) greens[i](r,c)=0.0;
+			}
+		}
 	}
 	return greens;
 }

@@ -11,15 +11,30 @@ GreensCalculator::GreensCalculator(){
 }
 
 
-void GreensCalculator::buildManifold(HartreeFockSolver::HFResults & hf){
+void GreensCalculator::buildOperators(std::vector<double> avocc,HartreeFockSolver::HFResults & hf){
 	StringMap & sm=SlaterDet::codes;
-	manifold.clear();
+	operators.clear();
 	for(int s = 0; s < 2; s++){
 	for(int i = 0; i < sm.norbs; i++){
 		for(int j = 0; j < sm.norbs; j++){
-				manifold.push_back(PHOp(i+sm.norbs*s,j+sm.norbs*s));
+			if((i!=j) && (avocc[i] > avocc[j])){
+				operators.push_back(PHOp(i+sm.norbs*s,j+sm.norbs*s));
+			}
 		}}
 	}
+	/*
+	for(int s =0; s < 2; s++){
+		for(int i = 0; i < sm.nelec; i++){
+			for(int r = sm.nelec; r < sm.norbs; r++){
+				operators.push_back(PHOp(i+sm.norbs*s,r+sm.norbs*s));
+			}
+		}
+	}
+	std::cout << "OPERATORS\n";
+	for(int i = 0; i < operators.size(); i++){
+		std::cout << operators[i].i << " " << operators[i].j << std::endl;
+	}
+	*/
 
 }
 
@@ -29,24 +44,22 @@ Matrix GreensCalculator::ComputeGreens(double E, IntegralChugger & ic, HartreeFo
 	return prop;
 }
 
-Matrix GreensCalculator::ComputeSelfEnergy(double E, IntegralChugger & ic, HartreeFockSolver::HFResults & hf, FullCISolver::FCIResults & fcir){
+Matrix GreensCalculator::ComputeSelfEnergy(double E, HartreeFockSolver::HFResults & hf, Matrix & G){
 	StringMap & sm = SlaterDet::codes;
-	Matrix ep(manifold.size(),manifold.size());
+	Matrix ep(operators.size(),operators.size());
 	for(int i = 0; i < ep.rows();i++){
 		for(int j = 0; j < ep.cols();j++){
 			if(i==j){
-				ep(i,i)=hf.E(manifold[i].j%sm.norbs,0)-hf.E(manifold[i].i%sm.norbs,0);
+				ep(i,i)=hf.E(operators[i].j%sm.norbs,0)-hf.E(operators[i].i%sm.norbs,0);
 			}
 			else ep(i,j)=0.0;
 		}
 	}
 
-	Matrix prop=ComputeGreens(E,ic,hf,fcir);
-	//Matrix prop=buildProp_Smart(E,fcir);
-	
-	Eigen::FullPivLU<Matrix> lu(prop);
+	Eigen::FullPivLU<Matrix> lu(G);
 	Matrix inverse=lu.inverse();
-	Matrix G0i=Matrix::Identity(manifold.size(),manifold.size())*0.2-ep;
+	Matrix G0i=Matrix::Identity(operators.size(),operators.size())*E-ep;
+	//std::cout << "G0i for SE\n" <<G0i << std::endl;
 	
 	return G0i-inverse;
 }
@@ -56,7 +69,7 @@ Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fc
 	
 	//std::vector<double> GreensCalculator::computeAvOc_Pure(Matrix state){
 	std::vector<double> oc=computeAvOc_Pure(fcir.eigenvectors.col(0));
-	manifold.clear();
+	/*operators.clear();
 	for(int s = 0; s < 2; s++){
 	for(int i = 0; i < sm.norbs; i++){
 		for(int j = 0; j < sm.norbs; j++){
@@ -65,16 +78,17 @@ Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fc
 			//}
 		}}
 	}
+	*/
 
 
 	Matrix & evecs = fcir.eigenvectors;
 	Matrix & evals = fcir.eigenvalues;
 
-	Matrix OM(manifold.size(),evecs.rows()), MO(manifold.size(),evecs.rows());
-	for(int i = 0; i < manifold.size();i++){
+	Matrix OM(operators.size(),evecs.rows()), MO(operators.size(),evecs.rows());
+	for(int i = 0; i < operators.size();i++){
 		for(int j = 0; j < fcir.eigenvectors.rows();j++){
-			OM(i,j)=NqM(manifold[i],evecs.col(0),evecs.col(j));
-			MO(i,j)=NqM(manifold[i],evecs.col(j),evecs.col(0));
+			OM(i,j)=NqM(operators[i],evecs.col(0),evecs.col(j));
+			MO(i,j)=NqM(operators[i],evecs.col(j),evecs.col(0));
 		}
 	}
 	std::vector<double> Ep,Em;
@@ -85,7 +99,7 @@ Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fc
 		Em[i]=1.0/(E-w0M);
 	}
 
-	Matrix prop(manifold.size(),manifold.size());
+	Matrix prop(operators.size(),operators.size());
 	for(int i = 0; i < prop.rows(); i++){
 		for(int j = 0; j < prop.cols();j++){
 			prop(i,j)=calcPropEl_Smart(i,j,OM,MO,Ep,Em);
@@ -127,57 +141,41 @@ std::vector<double> GreensCalculator::computeAvOc_Pure(Matrix state){
 	}
 
 	//Might want to change this to restrict operators that excite to a different spin
-	for(int s =0; s < 2; s++){
-	for(int i = 0; i < sm.norbs;i++){
-		PHOp op;
-		op.i=i+sm.norbs*s;
-		for(int j = 0; j < sm.norbs;j++){
-			op.j=j+sm.norbs*s;
-			if(ocav[j]>ocav[i]) manifold.push_back(op);
-		}
-	}
-	}
-
-
-	std::cout <<  "MANIFOLD\n";
-	for(int i = 0; i < manifold.size(); i++){
-		std::cout << manifold[i].i << " " << manifold[i].j << " " << ocav[manifold[i].i] << " " << ocav[manifold[i].j] << std::endl;
-	}
 
 	return ocav;
 
 }
 
 Matrix GreensCalculator::computeOverlap(Matrix state){
-	Matrix S(manifold.size(),manifold.size());
+	Matrix S(operators.size(),operators.size());
 
 	for(int r = 0; r < S.rows();r++){
 		for(int c = 0; c < S.cols();c++){
-			S(r,c)=qq(manifold[r],manifold[c].adjoint(),state)-qq(manifold[c].adjoint(),manifold[r],state);	
+			S(r,c)=qq(operators[r],operators[c].adjoint(),state)-qq(operators[c].adjoint(),operators[r],state);	
 		}
 	}
 	return S;
 }
 
 Matrix GreensCalculator::computeLMatrix(std::vector<double> & ocavs){
-	Matrix lambda(manifold.size(),manifold.size());
-	for(int i = 0; i < manifold.size();i++)
-		for(int j = 0; j < manifold.size();j++)
+	Matrix lambda(operators.size(),operators.size());
+	for(int i = 0; i < operators.size();i++)
+		for(int j = 0; j < operators.size();j++)
 			lambda(i,j)=0.0;
-	for(int i = 0; i < manifold.size();i++){
-		lambda(i,i)=ocavs[manifold[i].j]-ocavs[manifold[i].i];
+	for(int i = 0; i < operators.size();i++){
+		lambda(i,i)=ocavs[operators[i].j]-ocavs[operators[i].i];
 	}
 	return lambda;
 }
 
 Matrix GreensCalculator::computeAMatrix(Matrix state,Matrix ev,Matrix*fullH){
-	Matrix A(manifold.size(),manifold.size());
+	Matrix A(operators.size(),operators.size());
 
 	int count = 0;
 	for(int r = 0; r < A.rows();r++){
 		for(int c = 0; c < A.cols();c++){
 			
-			PHOp q1=manifold[r],q2=manifold[c].adjoint();
+			PHOp q1=operators[r],q2=operators[c].adjoint();
 			A(r,c)=-(qqH(q1,q2,state,ev(0,0))+qqH(q2,q1,state,ev(0,0))-qHq(q1,q2,state,fullH)-qHq(q2,q1,state,fullH));
 		}
 	}
@@ -186,11 +184,11 @@ Matrix GreensCalculator::computeAMatrix(Matrix state,Matrix ev,Matrix*fullH){
 }
 
 Matrix GreensCalculator::computeBMatrix(Matrix state, Matrix ev,Matrix * fullH){
-	Matrix B(manifold.size(), manifold.size());
+	Matrix B(operators.size(), operators.size());
 
 	for(int r = 0; r < B.rows();r++){
 		for(int c = 0; c < B.cols();c++){
-			PHOp q1=manifold[r],q2=manifold[c];
+			PHOp q1=operators[r],q2=operators[c];
 			B(r,c)=qqH(q1,q2,state,ev(0,0))+qqH(q2,q1,state,ev(0,0))-qHq(q1,q2,state,fullH)-qHq(q2,q1,state,fullH);
 		}
 	}

@@ -40,13 +40,19 @@ class FullCISolver{
 		FullCISolver::MBPTResults mbpt(HartreeFockSolver::HFResults &hf,int order);
 		std::vector<Matrix> recursivegreen(int order, double E, HartreeFockSolver::HFResults & hf, FullCISolver::MBPTResults & mbptr); 
 
+
+		void buildOperators(std::vector<double> avocc, HartreeFockSolver::HFResults & hf);
+	
+		void cleanup();
+		
+		std::vector<PHOp> operators;
+	private:
 		void computeHamiltonian();
 		double matrixEl(int x, int y);
 
 		double secondQuantMatel1e(SlaterDet & s1, SlaterDet & s2,SlaterCompare & sc);
 		double secondQuantMatel2e(SlaterDet & s1, SlaterDet & s2,SlaterCompare & sc);
 
-		void cleanup();
 	private:
 		double  opOnSlater(PHOp op, unsigned char * alpha, unsigned char * beta);
 
@@ -60,6 +66,7 @@ class FullCISolver{
 		bool lambdaDeriv;
 		double lambda;
 		double fockTotal;
+
 
 		bool fciSuccess=false;
 };
