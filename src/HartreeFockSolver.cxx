@@ -201,232 +201,6 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	return results;
 }
 
-/*
-Matrix HartreeFockSolver::compute1eints(ModelParams & param, BasisSet & bs, libint2::Operator obtype){
-	using libint2::Shell;
-	using libint2::Engine;
-	using libint2::Operator;
-
-	int n = bs.nbf();
-	int nshells=bs.size();
-
-	Matrix intMat(n,n);
-
-	Engine engine(obtype, bs.max_nprim(), bs.max_l(), 0);
-
-	if(obtype == Operator::nuclear){
-		std::vector<std::pair<double,std::array<double,3>>> chargepos;
-		for(auto & at : param.atoms){
-			chargepos.push_back( {(double)at.atomic_number,{{at.x,at.y,at.z}}});
-		}
-		engine.set_params(chargepos);
-	}
-
-	const auto & buf = engine.results();
-
-	for(int i = 0; i < nshells; i++){
-		int bf1=bs.shell2bf()[i];
-		int n1=bs[i].size();
-
-		for(int j = 0; j <=i; j++){
-			int bf2 = bs.shell2bf()[j];
-			int n2 = bs[j].size();
-
-			engine.compute(bs[i],bs[j]);
-
-			Eigen::Map<const Matrix> buf_mat(buf[0],n1,n2);
-			intMat.block(bf1,bf2,n1,n2)=buf_mat;
-
-			if(i!=j){
-				intMat.block(bf2,bf1,n2,n1)=buf_mat.transpose();
-			}
-		}
-	}
-	return intMat;
-}
-
-void HartreeFockSolver::compute2eints(BasisSet & bs){
-	using libint2::Shell;
-	using libint2::Engine;
-	using libint2::Operator;
-
-	int n = bs.nbf();
-	int nshells=bs.size();
-
-	Engine engine(Operator::coulomb, bs.max_nprim(), bs.max_l());
-
-	const auto & buf = engine.results();
-
-	twobodyints.resize(n);
-	for(int a = 0; a < n; a++){
-		twobodyints[a].resize(a+1);
-		for(int b = 0; b <= a; b++){
-			twobodyints[a][b].resize(a+1);
-			for(int c = 0; c <= a; c++){
-				int dsize=(a==c)?b:c;
-				twobodyints[a][b][c].resize(dsize+1);
-				for(int d = 0; d<= dsize; d++){
-					twobodyints[a][b][c][d]=0.0;
-				}
-			}
-		}
-	}
-
-	for(int s1 = 0; s1 < nshells; s1++){
-		int bf1_first = bs.shell2bf()[s1];
-		int n1 = bs[s1].size();
-		for( int s2 = 0; s2 <= s1; s2++){
-			int bf2_first = bs.shell2bf()[s2];
-			int n2 = bs[s2].size();
-			for(int s3 = 0; s3 <= s1; s3++){
-				int bf3_first = bs.shell2bf()[s3];
-				int n3 = bs[s3].size();
-
-				int s4_max = (s1==s3)?s2:s3;
-				for(int s4 = 0; s4 <= s4_max; s4++){
-					int bf4_first=bs.shell2bf()[s4];
-					int n4 = bs[s4].size();
-
-
-					engine.compute(bs[s1],bs[s2],bs[s3],bs[s4]);
-
-					const auto* buf_1234=buf[0];
-					
-					//bool culled=buf_1234==nullptr;
-					if(buf_1234==nullptr) continue;
-
-					for(int f1=0,f1234=0; f1<n1;f1++){
-					int bf1=f1+bf1_first;
-					for(int f2=0; f2<n2;f2++){
-					int bf2=f2+bf2_first;
-					for(int f3=0; f3<n3;f3++){
-					int bf3=f3+bf3_first;
-					for(int f4=0; f4<n4;f4++,f1234++){
-					int bf4=f4+bf4_first;
-						std::array<int,4> co=get2bodyintcord(bf1,bf2,bf3,bf4);
-						
-						int a=bf1, b=bf2, c=bf3, d=bf4;
-						if(b>a)std::swap(a,b);
-						if(d>c)std::swap(c,d);
-						if(c>a){std::swap(c,a);std::swap(d,b);}
-						if(a==c&&d>b){std::swap(a,c);std::swap(b,d);}
-						else if(d>c){std::swap(c,d);}
-						
-						//std::cout << "Computing ("<<bf1<<bf2<<"|"<<bf3<<bf4<<")"<<std::endl;
-						double value=buf_1234[f1234];
-						twobodyints[co[0]][co[1]][co[2]][co[3]]=value;
-					}
-					}
-					}
-					}
-				}
-			}
-		}
-	}
-}
-
-void HartreeFockSolver::compute2eints_crappy(BasisSet & bs){
-	using libint2::Shell;
-	using libint2::Engine;
-	using libint2::Operator;
-
-	int n = bs.nbf();
-	int nshells=bs.size();
-
-	Engine engine(Operator::coulomb, bs.max_nprim(), bs.max_l());
-
-	const auto & buf = engine.results();
-
-	std::cout << "INITIALIZING LIST\n";
-	checklist cl;
-	cl.resize(n);
-	twobodyints.resize(n);
-	for(int a = 0; a < n; a++){
-		cl[a].resize(n);
-		twobodyints[a].resize(n);
-		for(int b = 0; b < n; b++){
-			cl[a][b].resize(n);
-			twobodyints[a][b].resize(n);
-			for(int c = 0; c < n; c++){
-				cl[a][b][c].resize(n);
-				twobodyints[a][b][c].resize(n);
-				for(int d = 0; d< n; d++){
-					cl[a][b][c][d]=false;
-					twobodyints[a][b][c][d]=0.0;
-				}
-			}
-		}
-	}
-	std::cout << "COMPUTING INTEGRALS\n";
-	for(int s1 = 0; s1 < nshells; s1++){
-		int bf1_first = bs.shell2bf()[s1];
-		int n1 = bs[s1].size();
-		for( int s2 = 0; s2 < nshells; s2++){
-			int bf2_first = bs.shell2bf()[s2];
-			int n2 = bs[s2].size();
-			for(int s3 = 0; s3 < nshells; s3++){
-				int bf3_first = bs.shell2bf()[s3];
-				int n3 = bs[s3].size();
-				for(int s4 = 0; s4 < nshells; s4++){
-					int bf4_first=bs.shell2bf()[s4];
-					int n4 = bs[s4].size();
-
-
-					engine.compute(bs[s1],bs[s2],bs[s3],bs[s4]);
-
-					const auto* buf_1234=buf[0];
-					
-					//bool culled=buf_1234==nullptr;
-					if(buf_1234==nullptr) continue;
-
-					for(int f1=0,f1234=0; f1<n1;f1++){
-					int bf1=f1+bf1_first;
-					for(int f2=0; f2<n2;f2++){
-					int bf2=f2+bf2_first;
-					for(int f3=0; f3<n3;f3++){
-					int bf3=f3+bf3_first;
-					for(int f4=0; f4<n4;f4++,f1234++){
-					int bf4=f4+bf4_first;
-						//std::array<int,4> co=get2bodyintcord(bf1,bf2,bf3,bf4);
-						
-						int a=bf1, b=bf2, c=bf3, d=bf4;
-						if(b>a)std::swap(a,b);
-						if(d>c)std::swap(c,d);
-						if(c>a){std::swap(c,a);std::swap(d,b);}
-		1				if(a==c&&d>b){std::swap(a,c);std::swap(b,d);}
-						else if(d>c){std::swap(c,d);}
-						
-						//std::cout << "Computing ("<<bf1<<bf2<<"|"<<bf3<<bf4<<")"<<std::endl;
-						double value=buf_1234[f1234];
-						//twobodyints[co[0]][co[1]][co[2]][co[3]]=value;
-						twobodyints[bf1][bf2][bf3][bf4]=value;
-						cl[bf1][bf2][bf3][bf4]=true;
-					}
-					}
-					}
-					}
-				}
-			}
-		}
-	}
-	for(int a = 0; a < n; a++){
-		cl[a].resize(n);
-		for(int b = 0; b < n; b++){
-			cl[a][b].resize(n);
-			for(int c = 0; c < n; c++){
-				cl[a][b][c].resize(n);
-				for(int d = 0; d< n; d++){
-					if(!cl[a][b][c][d]){
-
-						std::cout << "MISSED: (" << a<<b<<"|"<<c<<d<<")"<<std::endl;
-					}
-				}
-			}
-		}
-	}
-}
-*/
-
 Matrix HartreeFockSolver::computeGMatrix(Matrix & D,IntegralChugger &ic){
 	int n = ic.tbi.size();
 
@@ -487,23 +261,9 @@ Matrix HartreeFockSolver::initialDGuess(ModelParams & param, Matrix & H, Matrix 
 		auto C_occ = C.leftCols(ndocc);
 		D=C_occ*C_occ.transpose();
 	}
-	//return Matrix::Zero(S.rows(),S.cols());
 	return D;
 }
 
-/*
-std::array<int,4> HartreeFockSolver::get2bodyintcord(int a, int b, int c, int d){
-	//std::cout << a << " " << b << " " << c <<" " << d << " TO ";
-	if(b>a)std::swap(a,b);
-	if(d>c)std::swap(c,d);
-	if(c>a){std::swap(c,a);std::swap(d,b);}
-	if(a==c&&d>b){std::swap(a,c);std::swap(b,d);}
-	else if(d>c){std::swap(c,d);}
-	//std::cout << a << " " << b << " " << c <<" " << d << std::endl;
-
-	return std::array<int,4>{a,b,c,d};
-}
-*/
 
 TDHFSolver::TDHFResults TDHFSolver::TDHFCalc(hfresults & hfr, IntegralChugger & ic,bool td){
 	StringMap & sm=SlaterDet::codes;
@@ -524,8 +284,6 @@ TDHFSolver::TDHFResults TDHFSolver::TDHFCalc(hfresults & hfr, IntegralChugger & 
 	Matrix A(operators.size(), operators.size()),
 	       B(operators.size(),operators.size());
 
-	//TAKE INTO ACCOUNT SPIN
-
 	for(int r = 0; r < operators.size(); r++){
 		for(int c = 0; c < operators.size(); c++){
 			int i=operators[r].i%sm.norbs,
@@ -545,29 +303,12 @@ TDHFSolver::TDHFResults TDHFSolver::TDHFCalc(hfresults & hfr, IntegralChugger & 
 		}
 	}
 
-	std::cout << "HERMITIAN TEST\n";
-	bool hermitian=true;
-	Matrix prod=(A-B)*(A+B);
-	for(int i = 0; i < A.rows(); i++){
-		for(int j = 0; j < A.cols(); j++){
-			if(std::abs(prod(i,j)-prod(j,i))>0.0000001){
-				hermitian =false;
-			}
-		}
-	}
-	std::cout << "Aprod is ";
-	if(hermitian) std::cout << "HERMITIAN\n";
-	else std::cout << "NOT HERMITIAN\n";
-
 	TDHFSolver::TDHFResults tdhfr;
 	if(!td){
 		Eigen::EigenSolver<Matrix> eigen_solver((A-B)*(A+B));
-		//Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver((A-B)*(A+B));
 		std::vector<double> vals;
-		//tdhfr.EE=Matrix(eigen_solver.eigenvalues().rows(),1);
 		for(int i = 0; i < eigen_solver.eigenvalues().rows();i++){
 			vals.push_back(std::sqrt(eigen_solver.eigenvalues()(i,0).real()));
-			//std::cout << eigen_solver.eigenvalues()(i,0).real() <<std::endl;
 		}
 		std::sort(vals.begin(),vals.end());
 
