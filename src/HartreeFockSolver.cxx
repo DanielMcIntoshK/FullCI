@@ -1,7 +1,68 @@
 #include "HartreeFockSolver.h"
+#include "SlaterDet.h"
 #include <stdio.h>
 #include <cmath>
 #include <array>
+#include <algorithm>
+
+void HartreeFockSolver::HFResults::buildOperators(){
+	operators.clear();
+	for(int s = 0; s < 2; s++){
+		for(int i = 0; i < nelec; i++){
+			for(int r = nelec; r < norbs; r++){
+				operators.push_back(PHOp(i+norbs*s,r+norbs*s));
+			}
+		}
+	}
+	for(int s = 0; s < 2; s++){
+		for(int i = 0; i < nelec; i++){
+			for(int r = nelec; r < norbs; r++){
+				operators.push_back(PHOp(r+norbs*s,i+norbs*s));
+			}
+		}
+	}
+}
+
+Matrix HartreeFockSolver::HFResults::getG0(double w){
+	Matrix G0(operators.size(),operators.size());
+	for(int i = 0; i < G0.rows(); i++){
+		for(int j = 0; j < G0.cols();j++){
+			if(i==j){
+				if((operators[i].j%norbs)>(operators[i].i%norbs)){
+					G0(i,i)=1.0/(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
+				}
+				else{
+					G0(i,i)=-1.0/(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
+				}
+			}
+			else{
+				G0(i,j)=0.0;
+			}
+		}
+	}
+	return G0;
+}
+
+Matrix HartreeFockSolver::HFResults::getG0i(double w){
+	Matrix G0i(operators.size(),operators.size());
+	for(int i = 0; i < G0i.rows(); i++){
+		for(int j = 0; j < G0i.cols();j++){
+			if(i==j){
+				if((operators[i].j%norbs)>(operators[i].i%norbs)){
+					G0i(i,i)=(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
+				}
+				else{
+					G0i(i,i)=-(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
+				}
+			}
+			else{
+				G0i(i,j)=0.0;
+			}
+		}
+	}
+	return G0i;
+
+}
 
 HartreeFockSolver::HartreeFockSolver(){
 
@@ -132,6 +193,10 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	results.E = E;
 	results.G = G;
 	results.F = F;
+
+	results.nelec=params.nelec/2;
+	results.norbs=C.rows();
+	results.buildOperators();
 	
 	return results;
 }
@@ -328,7 +393,7 @@ void HartreeFockSolver::compute2eints_crappy(BasisSet & bs){
 						if(b>a)std::swap(a,b);
 						if(d>c)std::swap(c,d);
 						if(c>a){std::swap(c,a);std::swap(d,b);}
-						if(a==c&&d>b){std::swap(a,c);std::swap(b,d);}
+		1				if(a==c&&d>b){std::swap(a,c);std::swap(b,d);}
 						else if(d>c){std::swap(c,d);}
 						
 						//std::cout << "Computing ("<<bf1<<bf2<<"|"<<bf3<<bf4<<")"<<std::endl;
@@ -439,3 +504,84 @@ std::array<int,4> HartreeFockSolver::get2bodyintcord(int a, int b, int c, int d)
 	return std::array<int,4>{a,b,c,d};
 }
 */
+
+TDHFSolver::TDHFResults TDHFSolver::TDHFCalc(hfresults & hfr, IntegralChugger & ic,bool td){
+	StringMap & sm=SlaterDet::codes;
+
+	std::vector<PHOp> operators;
+	for(int s = 0; s < 2; s++){
+		for(int i = 0; i < sm.nelec; i++){
+			for(int r = sm.nelec; r < sm.norbs;r++){
+				operators.push_back(PHOp(i+sm.norbs*s,r+sm.norbs*s));
+			}	
+		}
+	}
+	std::cout << "OPERATORS: \n";
+	for(int i = 0; i < operators.size();i++){
+		std::cout << operators[i].i << " " << operators[i].j << std::endl;
+	}
+
+	Matrix A(operators.size(), operators.size()),
+	       B(operators.size(),operators.size());
+
+	//TAKE INTO ACCOUNT SPIN
+
+	for(int r = 0; r < operators.size(); r++){
+		for(int c = 0; c < operators.size(); c++){
+			int i=operators[r].i%sm.norbs,
+			    a=operators[r].j%sm.norbs,
+			    j=operators[c].i%sm.norbs,
+			    b=operators[c].j%sm.norbs;
+
+			int ispin=operators[r].i/sm.norbs,
+			    jspin=operators[c].i/sm.norbs;
+			
+			A(r,c)=(r==c)?(hfr.E(a,0)-hfr.E(i,0)):0.0;
+			A(r,c)+=ic.mov(a,i,j,b);
+			if(ispin==jspin) A(r,c)-=ic.mov(a,b,j,i);
+			
+			B(r,c)=ic.mov(a,i,b,j);
+			if(ispin==jspin) B(r,c)-=ic.mov(a,j,b,i);
+		}
+	}
+
+	std::cout << "HERMITIAN TEST\n";
+	bool hermitian=true;
+	Matrix prod=(A-B)*(A+B);
+	for(int i = 0; i < A.rows(); i++){
+		for(int j = 0; j < A.cols(); j++){
+			if(std::abs(prod(i,j)-prod(j,i))>0.0000001){
+				hermitian =false;
+			}
+		}
+	}
+	std::cout << "Aprod is ";
+	if(hermitian) std::cout << "HERMITIAN\n";
+	else std::cout << "NOT HERMITIAN\n";
+
+	TDHFSolver::TDHFResults tdhfr;
+	if(!td){
+		Eigen::EigenSolver<Matrix> eigen_solver((A-B)*(A+B));
+		//Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver((A-B)*(A+B));
+		std::vector<double> vals;
+		//tdhfr.EE=Matrix(eigen_solver.eigenvalues().rows(),1);
+		for(int i = 0; i < eigen_solver.eigenvalues().rows();i++){
+			vals.push_back(std::sqrt(eigen_solver.eigenvalues()(i,0).real()));
+			//std::cout << eigen_solver.eigenvalues()(i,0).real() <<std::endl;
+		}
+		std::sort(vals.begin(),vals.end());
+
+		tdhfr.EE=Matrix(vals.size(),1);
+		int count=0;
+		for(auto a: vals) tdhfr.EE(count++,0)=a;
+	}
+	else{
+		Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(A);
+		tdhfr.EE=Matrix(eigen_solver.eigenvalues().rows(),1);
+		for(int i = 0; i < tdhfr.EE.rows();i++){tdhfr.EE(i,0)=eigen_solver.eigenvalues()(i,0);}
+	}
+	return tdhfr;
+
+}
+
+

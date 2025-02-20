@@ -13,14 +13,6 @@
 #include "HartreeFockSolver.h"
 #include "SlaterDet.h"
 
-struct PHOp{
-	PHOp():i{0},j{0}{}
-	PHOp(int a, int b):i{a},j{b}{}
-	int i,j;
-
-	PHOp adjoint(){return PHOp(j,i);}
-};
-
 class FullCISolver{
 	public:
 		struct FCIResults{
@@ -40,12 +32,7 @@ class FullCISolver{
 		FullCISolver::MBPTResults mbpt(HartreeFockSolver::HFResults &hf,int order);
 		std::vector<Matrix> recursivegreen(int order, double E, HartreeFockSolver::HFResults & hf, FullCISolver::MBPTResults & mbptr); 
 
-
-		void buildOperators(std::vector<double> avocc, HartreeFockSolver::HFResults & hf);
-	
 		void cleanup();
-		
-		std::vector<PHOp> operators;
 	private:
 		void computeHamiltonian();
 		double matrixEl(int x, int y);
@@ -69,6 +56,8 @@ class FullCISolver{
 
 
 		bool fciSuccess=false;
+
+		std::vector<PHOp> operators;
 };
 
 #endif

@@ -15,6 +15,13 @@
 
 using namespace libint2;
 
+struct PHOp{
+	PHOp():i{0},j{0}{}
+	PHOp(int a, int b):i{a},j{b}{}
+	int i,j;
+
+	PHOp adjoint(){return PHOp(j,i);}
+};
 
 //Exactly what it says on the tin
 //Class used for solving Hartree Fock
@@ -32,6 +39,15 @@ public:
 		Matrix G;
 		Matrix F;
 		Matrix E;
+
+		int nelec;
+		int norbs;
+
+		std::vector<PHOp> operators;
+
+		void buildOperators();
+		Matrix getG0(double E);
+		Matrix getG0i(double E);
 	};
 public:
 	HartreeFockSolver();
@@ -51,6 +67,19 @@ private:
 };
 
 typedef HartreeFockSolver::HFResults hfresults;
+
+class TDHFSolver{
+public:
+	struct TDHFResults{
+		Matrix EE;
+	};
+public:
+	TDHFSolver(){}
+
+	TDHFSolver::TDHFResults TDHFCalc(hfresults & hfr, IntegralChugger & ic,bool TammDancoff=false);
+
+private:
+};
 
 #endif
 

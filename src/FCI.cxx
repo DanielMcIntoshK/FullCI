@@ -5,6 +5,8 @@
 #include <bitset>
 
 FullCISolver::FCIResults FullCISolver::fci(IntegralChugger &ic, HartreeFockSolver::HFResults &hf, double lam){
+	operators=hf.operators;
+
 	lambda=lam;
 	//lambdaDeriv=(std::abs(lambda-1.0)>.000001);
 	lambdaDeriv = true;
@@ -49,6 +51,7 @@ FullCISolver::MBPTResults FullCISolver::mbpt(HartreeFockSolver::HFResults & hf,i
 		return FullCISolver::MBPTResults();
 	}
 	std::cout << "MBPT HIGH ORDER CALCULATION\n";
+	operators=hf.operators;
 
 	StringMap & sm = SlaterDet::codes;
 
@@ -121,6 +124,7 @@ FullCISolver::MBPTResults FullCISolver::mbpt(HartreeFockSolver::HFResults & hf,i
 }
 
 std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFockSolver::HFResults & hfr, FullCISolver::MBPTResults & mbptr){
+	operators=hfr.operators;
 	if(mbptr.wavefunctions.size()<order){
 		std::cout << "ERROR: CANNOT PERFORM GREENS CALCULATION TO " << order << "th ORDER WITH ONLY " << mbptr.wavefunctions.size() << " MBPT ORDER CALCULATION...\nMUST BE GREATER THAN OR EQUAL TO DESIRED GREENS FUNCTION ORDER\n";
 		return std::vector<Matrix>();
@@ -265,9 +269,11 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 	return G_n;
 }
 
+/*
 void FullCISolver::buildOperators(std::vector<double> avocc, HartreeFockSolver::HFResults &hf){
 	StringMap & sm = SlaterDet::codes;
 	operators.clear();
+	/
 	for(int s = 0; s<2; s++){
 		for(int i = 0; i < sm.norbs; i++){
 			for(int j = 0; j < sm.norbs; j++){
@@ -277,16 +283,23 @@ void FullCISolver::buildOperators(std::vector<double> avocc, HartreeFockSolver::
 			}
 		}
 	}
-	/*operators.clear();
+	/
+	//operators.clear();
 	for(int s = 0; s<2; s++){
 		for(int i = 0; i < sm.nelec;i++){
 			for(int r = sm.nelec; r < sm.norbs; r++){
 				operators.push_back(PHOp(i+sm.norbs*s, r+sm.norbs*s));
 			}
 		}
+		for(int i = 0; i < sm.nelec; i++){
+			for(int r = sm.nelec; r < sm.norbs; r++){
+				operators.push_back(PHOp(r+sm.norbs*s,i+sm.norbs*s));
+			}
+		}
 	}
-	*/
+	
 }
+*/
 
 
 void FullCISolver::computeHamiltonian(){

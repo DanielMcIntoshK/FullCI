@@ -23,14 +23,12 @@ class GreensCalculator{
 public:
 	GreensCalculator();
 
-	void buildOperators(std::vector<double> avocc,HartreeFockSolver::HFResults & hf);
-
 	Matrix ComputeGreens(double E, IntegralChugger & ic, HartreeFockSolver::HFResults &hf, FullCISolver::FCIResults & fcir);
-	Matrix ComputeSelfEnergy(double E, HartreeFockSolver::HFResults &hf, Matrix & G);
+	Matrix ComputeSelfEnergy(double E, HartreeFockSolver::HFResults &hf, Matrix & G, bool verbose=false);
+
+	std::vector<Matrix> ComputeSelfEnergies(double E, int order, HartreeFockSolver::HFResults & hfr, std::vector<Matrix> greens);
 
 	std::vector<double> computeAvOc_Pure(Matrix state);
-	
-	std::vector<PHOp> operators;
 private:
 	Matrix buildProp(double E, FullCISolver::FCIResults & fcir);
 	double calcPropEl(double E,PHOp q1, PHOp q2,Matrix &evals, Matrix &evecs);
@@ -48,6 +46,7 @@ private:
 	double NqM(PHOp q, Matrix N, Matrix M);
 private:
 	IntegralChugger * ints;
+	std::vector<PHOp> operators;
 };
 
 double applyPHOp(PHOp op, unsigned char * alpha, unsigned char * beta);

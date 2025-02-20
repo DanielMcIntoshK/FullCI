@@ -10,10 +10,11 @@ GreensCalculator::GreensCalculator(){
 
 }
 
-
+/*
 void GreensCalculator::buildOperators(std::vector<double> avocc,HartreeFockSolver::HFResults & hf){
 	StringMap & sm=SlaterDet::codes;
 	operators.clear();
+	/
 	for(int s = 0; s < 2; s++){
 	for(int i = 0; i < sm.norbs; i++){
 		for(int j = 0; j < sm.norbs; j++){
@@ -22,45 +23,119 @@ void GreensCalculator::buildOperators(std::vector<double> avocc,HartreeFockSolve
 			}
 		}}
 	}
-	/*
+	/
+	
 	for(int s =0; s < 2; s++){
 		for(int i = 0; i < sm.nelec; i++){
 			for(int r = sm.nelec; r < sm.norbs; r++){
 				operators.push_back(PHOp(i+sm.norbs*s,r+sm.norbs*s));
 			}
 		}
+		for(int i = 0; i < sm.nelec; i++){
+			for(int r = sm.nelec; r < sm.norbs; r++){
+				operators.push_back(PHOp(r+sm.norbs*s,i+sm.norbs*s));
+			}
+		}
 	}
+	/
 	std::cout << "OPERATORS\n";
 	for(int i = 0; i < operators.size(); i++){
 		std::cout << operators[i].i << " " << operators[i].j << std::endl;
 	}
-	*/
+	/
 
 }
+*/
 
 Matrix GreensCalculator::ComputeGreens(double E, IntegralChugger & ic, HartreeFockSolver::HFResults & hf, FullCISolver::FCIResults & fcir){
 	ints= &ic;
+	operators=hf.operators;
 	Matrix prop=buildProp_Smart(E,fcir);
 	return prop;
 }
 
-Matrix GreensCalculator::ComputeSelfEnergy(double E, HartreeFockSolver::HFResults & hf, Matrix & G){
+std::vector<Matrix> GreensCalculator::ComputeSelfEnergies(double E, int order, 
+		HartreeFockSolver::HFResults & hfr, std::vector<Matrix> greens){
 	StringMap & sm = SlaterDet::codes;
-	Matrix ep(operators.size(),operators.size());
-	for(int i = 0; i < ep.rows();i++){
-		for(int j = 0; j < ep.cols();j++){
+
+	//std::cout << "GENERATING SELF ENERGIES\n";
+	Matrix G0i=hfr.getG0i(E);
+
+	/*
+	Matrix G0i=Matrix(operators.size(),operators.size());
+
+	for(int i = 0; i < G0i.rows();i++){
+		for(int j = 0; j < G0i.cols();j++){
 			if(i==j){
-				ep(i,i)=hf.E(operators[i].j%sm.norbs,0)-hf.E(operators[i].i%sm.norbs,0);
+				if((operators[i].j%sm.norbs > operators[i].i%sm.norbs)){
+					G0i(i,i)=E-(hfr.E(operators[i].j%sm.norbs,0)-hfr.E(operators[i].i%sm.norbs,0));
+				}
+				else {
+					G0i(i,i)=-(E-(hfr.E(operators[i].j%sm.norbs,0)-hfr.E(operators[i].i%sm.norbs,0)));
+				}
 			}
-			else ep(i,j)=0.0;
+			else{
+				G0i(i,j)=0.0;
+			}
 		}
 	}
+	*/
+	
+	std::vector<Matrix> Ms;
+	Ms.resize(order+1);
+	
+	Ms[0]=Matrix(0,0);
+	for(int n = 1; n <= order; n++){
+		Ms[n]=G0i*greens[n]*G0i;
+		for(int i=1; i < n;i++){
+			Ms[n]-=Ms[i]*greens[n-i]*G0i;
+		}	
+	}
 
+	return Ms;
+}
+
+Matrix GreensCalculator::ComputeSelfEnergy(double E, HartreeFockSolver::HFResults & hf, Matrix & G,bool verbose){
+	StringMap & sm = SlaterDet::codes;
+
+	if(verbose){
+		std::cout << "SELF ENERGY OUTPUT\n";
+	}
+	
+	/*
+	Matrix G0init=G0i;
+	
+	Matrix G0(operators.size(), operators.size());
+	Matrix G0c(G0.rows(),G0.cols());
+	for(int i = 0; i < G0.rows();i++){
+		for(int j = 0;E j < G0.cols();j++){
+			if(i==j){
+				if((operators[i].j%sm.norbs > operators[i].i%sm.norbs)){
+					G0c(i,i)=1.0/(E-(hf.E(operators[i].j%sm.norbs,0)-hf.E(operators[i].i%sm.norbs,0)));
+					G0(i,i)=G0c(i,i);
+				}
+				else {
+					G0c(i,i)=-1.0/(E-(hf.E(operators[i].j%sm.norbs,0)-hf.E(operators[i].i%sm.norbs,0)));
+					G0(i,i)=G0c(i,i);
+				}
+				if(verbose) std::cout << i << " "<<operators[i].i <<" "<< operators[i].j<< " " << hf.E(operators[i].i%sm.norbs,0) << " " << hf.E(operators[i].j%sm.norbs,0)<<" "<<G0c(i,i)<<std::endl;  
+			}
+			else{
+				G0c(i,j)=0.0;
+				G0(i,j)=0.0;
+			}
+		}
+	}
+	G0i=G0c;
+	for(int i = 0; i < G0c.rows();i++) G0i(i,i)=1.0/G0i(i,i);
+	*/
+	Matrix G0i=hf.getG0i(E);
+
+	//Eigen::FullPivLU<Matrix> lu(G-G0+G0c);
 	Eigen::FullPivLU<Matrix> lu(G);
 	Matrix inverse=lu.inverse();
-	Matrix G0i=Matrix::Identity(operators.size(),operators.size())*E-ep;
-	//std::cout << "G0i for SE\n" <<G0i << std::endl;
-	
+	//G0i=Matrix::Identity(operators.size(),operators.size())*E-G0c;
+
 	return G0i-inverse;
 }
 
