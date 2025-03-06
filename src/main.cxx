@@ -65,12 +65,19 @@ int main(int argc, char** argv){
 	for(int i =0; i < SlaterDet::codes.strs.size();i++){
 		std::cout << i << ": " << SlaterDet::decode(SlaterDet::codes.strs[i]) << std::endl;
 	}
-	TDHFSolver tdhfs;
-	TDHFSolver::TDHFResults tdhfr=tdhfs.TDHFCalc(hfr,ic);
+	RPASolver tdhfs(ic);
+	RPASolver::RPAResults tdhfr=tdhfs.RPACalc(hfr);
+	RPASolver::RPAResults tdhfr2=tdhfs.RPACalcSingTrip(hfr);
 
-	std::cout << "TDHF EXCITATION ENERGIES:\n";
-	for(int i = 0; i < tdhfr.EE.rows();i++){
-		std::cout << tdhfr.EE(i,0)<<std::endl;
+	std::cout << "RPA EXCITATION ENERGIES:\n";
+	for(int i = 0; i < tdhfr.EE.size();i++){
+		std::cout << tdhfr.EE[i]<<" " <<tdhfr2.EE[i]<<std::endl;
+	}
+
+	RPASolver::HRPAResults hrpar=tdhfs.HRPACalc(hfr,0.0001,1000);
+	std::cout << "HRPA EXCITATION ENERGIES:\n";
+	for(int i = 0; i < hrpar.EE.size(); i++){
+		std::cout << hrpar.EE[i]<<" " << std::endl;
 	}
 
 	return 0;
@@ -264,34 +271,68 @@ int main(int argc, char** argv){
 
 	std::cout << "Full M\n" << Mfull <<std::endl<<std::endl;
 
-	std::cout << "HERMITIAN TEST\n";
-	for(int n = 0; n < serecursive.size();n++){
-		bool hermitian=true;
-		for(int i = 0; i < serecursive[n].rows(); i++){
-			for(int j = 0; j < serecursive[n].cols();j++){
-				if(std::abs(serecursive[n](i,j)-serecursive[n](j,i))>0.000001){
-					hermitian=false;
-				}
+	std::ofstream gnum("Output/gnum.vals");
+	gnum << "Greens Function Numerically Derived\n";
+	for(int i = 0; i <= 5; i++){
+		gnum<< i << std::endl;
+		for(int p = 2; p <=6; p++){
+			for(int q = 2; q <=6; q++){
+				gnum<<greensnum[i](p,q)<<" ";
 			}
+			gnum<<std::endl;
 		}
-		std::cout << n << " ";
-		if(hermitian) std::cout << "HERMITIAN\n";
-		else std::cout << "NONHERMITIAN\n";
 	}
+	gnum.close();
+	std::ofstream grec("Output/grec.vals");
+	gnum << "Greens Function Algebreic Derived\n";
+	for(int i = 0; i <= 5; i++){
+		grec<< i << std::endl;
+		for(int p = 2; p <=6; p++){
+			for(int q = 2; q <=6; q++){
+				grec<<greens[i](p,q)<<" ";
+			}
+			grec<<std::endl;
+		}
+	}
+	grec.close();
+	std::ofstream mnum("Output/mnum.vals");
+	gnum << "Self Energy Numerically Derived\n";
+	for(int i = 0; i <= 5; i++){
+		mnum<< i << std::endl;
+		for(int p = 2; p <=6; p++){
+			for(int q = 2; q <=6; q++){
+				mnum<<greensnum[i](p,q)<<" ";
+			}
+			mnum<<std::endl;
+		}
+	}
+	mnum.close();
+	std::ofstream mrec("Output/mrec.vals");
+	gnum << "Self Energy Algebreic Derived\n";
+	for(int i = 0; i <= 5; i++){
+		mrec<< i << std::endl;
+		for(int p = 2; p <=6; p++){
+			for(int q = 2; q <=6; q++){
+				mrec<<greens[i](p,q)<<" ";
+			}
+			mrec<<std::endl;
+		}
+	}
+	mrec.close();
+	
 
-	return 0;
 	//std::vector<double> excitations;
 	std::vector<std::vector<double>> excitations;
-	excitations.push_back(std::vector<double>());
+	excitations.push_back(tdhfr.EE);
 
-	excitations[0].resize(tdhfr.EE.rows());
-	std::cout << "TDHF VALS:\n"; 
+	//excitations[0].resize(tdhfr.EE.rows());
+	std::cout << "RPA VALS:\n"; 
 	for(int i = 0; i < excitations[0].size(); i++){
-		excitations[0][i]=tdhfr.EE(i,0);
+		//excitations[0][i]=tdhfr.EE(i,0);
 		std::cout << i<< " " << excitations[0][i] << std::endl;
 	}
 	PoleSearch ps(&fcis,&gr,&ic,hfr,fcir,mbptr);
-	for(int i = 1; i <= order; i++){
+	for(int i = 1; i <= 10; i++){
 		
 		std::vector<double> rexcitations=ps.refinePointsOrder(excitations[i-1],0.000001,i);
 	
@@ -313,30 +354,32 @@ int main(int argc, char** argv){
 		std::cout << i << " " <<  excitations[excitations.size()-1][i]<<std::endl;
 	}
 
-	std::ofstream eefile("Output/eevals");
-	std::stack<double> line;
-	for(int i = 0; i < excitations[excitations.size()-1].size();i++){
-		line.push(excitations[excitations.size()-1][i]);
-		for(int j =excitations.size()-2;j>=0;j--){
-			double nearest=std::abs(line.top()-excitations[j][0]);
-			int nearesti=0;
-			for(int n = 1; n < excitations[j].size();n++){
-				double diff=std::abs(line.top()-excitations[j][n]);
-				if(diff<nearest){
-					nearest=diff;
-					nearesti=n;
+	bool outputEE=true;
+	if(outputEE){
+		std::ofstream eefile("Output/eevalsN");
+		std::stack<double> line;
+		for(int i = 0; i < excitations[excitations.size()-1].size();i++){
+			line.push(excitations[excitations.size()-1][i]);
+			for(int j =excitations.size()-2;j>=0;j--){
+				double nearest=std::abs(line.top()-excitations[j][0]);
+				int nearesti=0;
+				for(int n = 1; n < excitations[j].size();n++){
+					double diff=std::abs(line.top()-excitations[j][n]);
+					if(diff<nearest){
+						nearest=diff;
+						nearesti=n;
+					}
 				}
+				line.push(excitations[j][nearesti]);
 			}
-			line.push(excitations[j][nearesti]);
+			while(!line.empty()){
+				eefile << line.top() << " ";
+				line.pop();
+			}
+			eefile<<std::endl;
 		}
-		while(!line.empty()){
-			eefile << line.top() << " ";
-			line.pop();
-		}
-		eefile<<std::endl;
+		eefile.close();
 	}
-	eefile.close();
-	
 
 	for(int i = 1; i < fcir.eigenvalues.rows();i++){
 		std::cout << std::setprecision(6) <<fcir.eigenvalues(i,0)-fcir.eigenvalues(0,0) << std::endl;

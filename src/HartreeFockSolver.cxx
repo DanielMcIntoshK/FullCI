@@ -113,7 +113,8 @@ HartreeFockSolver::HFResults HartreeFockSolver::RestrictedHF(ModelParams & param
 	U.resize(0,0);
 
 	std::cout << "MAKING INITIAL DENSITY GUESS" << std::endl;
-	Matrix D = initialDGuess(params,H,S);
+	//Matrix D = initialDGuess(params,H,S);
+	Matrix D = Matrix::Zero(H.rows(),H.cols());
 
 	/*
 	std::cout << "COMPUTING 2 BODY INTEGRALS" << std::endl;
@@ -264,11 +265,13 @@ Matrix HartreeFockSolver::initialDGuess(ModelParams & param, Matrix & H, Matrix 
 	return D;
 }
 
+RPASolver::RPASolver(IntegralChugger & icref):ic{icref}{}
 
-TDHFSolver::TDHFResults TDHFSolver::TDHFCalc(hfresults & hfr, IntegralChugger & ic,bool td){
+RPASolver::RPAResults RPASolver::RPACalc(hfresults & hr,bool td){
 	StringMap & sm=SlaterDet::codes;
+	hfr=hr;
 
-	std::vector<PHOp> operators;
+	operators.clear();
 	for(int s = 0; s < 2; s++){
 		for(int i = 0; i < sm.nelec; i++){
 			for(int r = sm.nelec; r < sm.norbs;r++){
@@ -281,9 +284,151 @@ TDHFSolver::TDHFResults TDHFSolver::TDHFCalc(hfresults & hfr, IntegralChugger & 
 		std::cout << operators[i].i << " " << operators[i].j << std::endl;
 	}
 
-	Matrix A(operators.size(), operators.size()),
-	       B(operators.size(),operators.size());
+	Matrix A=A0(), B=B0();
 
+	RPASolver::RPAResults tdhfr;
+	if(!td){
+		Eigen::EigenSolver<Matrix> eigen_solver((A-B)*(A+B));
+		std::vector<double> vals;
+		for(int i = 0; i < eigen_solver.eigenvalues().rows();i++){
+			vals.push_back(std::sqrt(eigen_solver.eigenvalues()(i,0).real()));
+		}
+		std::sort(vals.begin(),vals.end());
+		tdhfr.EE=vals;
+		//tdhfr.EE=Matrix(vals.size(),1);
+		//int count=0;
+		//for(auto a: vals) tdhfr.EE(count++,0)=a;
+	}
+	else{
+		Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(A);
+		Matrix EEtemp=eigen_solver.eigenvalues();
+		tdhfr.EE.resize(EEtemp.rows());
+		for(int i = 0; i < EEtemp.rows();i++){tdhfr.EE[i]=eigen_solver.eigenvalues()(i,0);}
+	}
+	return tdhfr;
+
+}
+
+RPASolver::RPAResults RPASolver::RPACalcSingTrip(hfresults & hr, bool TD){
+	StringMap & sm=SlaterDet::codes;
+	hfr=hr;
+
+	operators.clear();
+	for(int i = 0; i < sm.nelec; i++){
+		for(int r = sm.nelec; r < sm.norbs;r++){
+			operators.push_back(PHOp(i,r));
+		}	
+	}
+	/*
+	std::cout << "OPERATORS: \n";
+	for(int i = 0; i < operators.size();i++){
+		std::cout << i << " "<<operators[i].i << " " << operators[i].j << " " << decode(operators[i].i,operators[i].j)<<std::endl;
+	}
+	*/
+
+	RPASolver::RPAResults tdhfr;
+
+	Matrix As=A0(0),Bs=B0(0),At=A0(1),Bt=B0(1);
+
+	if(TD){
+		Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(As);
+		Matrix EEtemp=eigen_solver.eigenvalues();
+		tdhfr.sing.resize(EEtemp.rows());
+		for(int i = 0; i < EEtemp.rows();i++){tdhfr.sing[i]=eigen_solver.eigenvalues()(i,0);}
+		eigen_solver=Eigen::SelfAdjointEigenSolver<Matrix>(As);
+		EEtemp=eigen_solver.eigenvalues();
+		tdhfr.trip.resize(EEtemp.rows());
+		for(int i = 0; i < EEtemp.rows();i++){tdhfr.trip[i]=eigen_solver.eigenvalues()(i,0);}
+	}
+	else{
+		Eigen::EigenSolver<Matrix> eigen_solver((As-Bs)*(As+Bs));
+		Matrix merge=(As-Bs)*(As+Bs);
+		tdhfr.sing.resize(eigen_solver.eigenvalues().rows());
+		for(int i = 0; i < eigen_solver.eigenvalues().rows();i++){
+			tdhfr.sing[i]=std::sqrt(eigen_solver.eigenvalues()(i,0).real());
+		}
+		eigen_solver=Eigen::EigenSolver<Matrix>((At-Bt)*(At+Bt));
+		tdhfr.trip.resize(eigen_solver.eigenvalues().rows());
+		for(int i = 0; i < eigen_solver.eigenvalues().rows();i++){
+			tdhfr.trip[i]=std::sqrt(eigen_solver.eigenvalues()(i,0).real());
+		}
+
+	}
+	tdhfr.EE=tdhfr.sing;
+	tdhfr.EE.insert(tdhfr.EE.end(),tdhfr.trip.begin(),tdhfr.trip.end());
+	std::sort(tdhfr.EE.begin(),tdhfr.EE.end());
+	
+	return tdhfr;	
+}
+
+RPASolver::HRPAResults RPASolver::HRPACalc(hfresults & hfr, double threshold, int terminate,bool USESCF){
+	RPASolver::HRPAResults hrpa;
+	RPASolver::RPAResults rpa=RPACalcSingTrip(hfr);
+	hrpa.EE=rpa.EE;
+	
+	for(int i = 0; i < 2; i++){
+		hrpa.singtrip[i].resize(operators.size());
+	}
+
+	std::vector<Matrix> A0s,B0s;
+	for(int i = 0; i < 2; i++) {
+		A0s.push_back(A0(i));
+		B0s.push_back(B0(i));
+	}
+	hrpa.Cs=initC(B0s);
+
+	threshold=std::pow(threshold,2);
+
+	double sqdiff=0.0;
+	int ccount=0;
+	do{
+		std::vector<double> oldEE=hrpa.EE;
+
+		std::array<Matrix,2> Y,Z;
+		for(int i = 0; i < 2; i++){
+			Matrix An=A0s[i]+A1(hrpa.Cs,i);
+			Matrix Bn=B0s[i]+B1(hrpa.Cs,i);
+
+			Eigen::EigenSolver<Matrix> eigen_solver((An-Bn)*(An+Bn));
+			for(int j = 0; j < eigen_solver.eigenvalues().rows(); j++){
+				hrpa.singtrip[i][j]=std::sqrt(eigen_solver.eigenvalues()(j,0).real());
+			}
+			auto YZ_c=eigen_solver.eigenvectors();
+			eigen_solver=Eigen::EigenSolver<Matrix>((An+Bn)*(An-Bn));
+			auto ZY_c=eigen_solver.eigenvectors();
+	
+			Matrix YZ(YZ_c.rows(),YZ_c.cols()), ZY(ZY_c.rows(), ZY_c.cols());
+			for(int r = 0; r < YZ.rows(); r++){
+				for(int c = 0; c <  YZ.cols();c++){
+					YZ(r,c)=YZ_c(r,c).real();
+					ZY(r,c)=ZY_c(r,c).real();
+				}
+			}
+
+			Y[i]=0.5*(YZ+ZY);
+			Z[i]=0.5*(ZY-YZ);
+		}
+		for(int i = 0;i < 2; i++){
+			hrpa.Cs[i]=constructC(Y[i],Z[i]);
+		}
+
+		sqdiff=0.0;
+		for(int i = 0; i < hrpa.EE.size(); i++){
+			sqdiff+=std::pow(hrpa.EE[i]-oldEE[i],2);
+		}
+		if(!USESCF)break;
+	}while(sqdiff>threshold&&(ccount++<terminate));
+	
+	if(ccount>=terminate){
+		std::cout << "HRPA SCF DID NOT CONVERGE\n";
+	}
+
+	return hrpa;
+}
+
+Matrix RPASolver::A0(){
+	StringMap & sm = SlaterDet::codes;
+	Matrix A(operators.size(),operators.size());
 	for(int r = 0; r < operators.size(); r++){
 		for(int c = 0; c < operators.size(); c++){
 			int i=operators[r].i%sm.norbs,
@@ -293,36 +438,163 @@ TDHFSolver::TDHFResults TDHFSolver::TDHFCalc(hfresults & hfr, IntegralChugger & 
 
 			int ispin=operators[r].i/sm.norbs,
 			    jspin=operators[c].i/sm.norbs;
-			
+
 			A(r,c)=(r==c)?(hfr.E(a,0)-hfr.E(i,0)):0.0;
 			A(r,c)+=ic.mov(a,i,j,b);
 			if(ispin==jspin) A(r,c)-=ic.mov(a,b,j,i);
-			
+		}
+	}	
+	return A;
+
+}
+
+Matrix RPASolver::B0(){
+	StringMap & sm = SlaterDet::codes;
+	Matrix B(operators.size(),operators.size());
+	for(int r = 0; r < operators.size(); r++){
+		for(int c = 0; c < operators.size(); c++){
+			int i=operators[r].i%sm.norbs,
+			    a=operators[r].j%sm.norbs,
+			    j=operators[c].i%sm.norbs,
+			    b=operators[c].j%sm.norbs;
+
+			int ispin=operators[r].i/sm.norbs,
+			    jspin=operators[c].i/sm.norbs;
+
 			B(r,c)=ic.mov(a,i,b,j);
 			if(ispin==jspin) B(r,c)-=ic.mov(a,j,b,i);
 		}
-	}
+	}	
+	return B;
 
-	TDHFSolver::TDHFResults tdhfr;
-	if(!td){
-		Eigen::EigenSolver<Matrix> eigen_solver((A-B)*(A+B));
-		std::vector<double> vals;
-		for(int i = 0; i < eigen_solver.eigenvalues().rows();i++){
-			vals.push_back(std::sqrt(eigen_solver.eigenvalues()(i,0).real()));
+}
+
+Matrix RPASolver::A1(std::vector<Matrix> C,int S){
+	StringMap & sm = SlaterDet::codes;
+	Matrix A(operators.size(),operators.size());
+	for(int r = 0; r < operators.size(); r++){
+		for(int c = 0; c < operators.size(); c++){
+			int i=operators[r].i,
+			    a=operators[r].j,
+			    j=operators[c].i,
+			    b=operators[c].j;
+
+			A(r,c)=0.0;
+			if(i==j){
+			for(int q=sm.nelec; q < sm.norbs; q++){
+			for(int u=0; u < hfr.nelec; u++){
+			for(int v=0; v < hfr.nelec; v++){
+				A(r,c)-=0.5*(ic.mov(a,u,q,v)*C[0](decode(u,b),decode(v,q))+ic.mov(u,b,v,q)*C[0](decode(u,a),decode(v,q)));
+			}}}}
+			if(i==j){
+			for(int p=sm.nelec; p < sm.norbs; p++){
+			for(int q=sm.nelec; q < sm.norbs; q++){
+			for(int v=0; v < sm.nelec; v++){
+				A(r,c)-=0.5*(ic.mov(p,i,q,v)*C[0](decode(j,p),decode(v,q))+ic.mov(j,p,v,q)*C[0](decode(i,p),decode(v,q)));	
+			}}}}
 		}
-		std::sort(vals.begin(),vals.end());
-
-		tdhfr.EE=Matrix(vals.size(),1);
-		int count=0;
-		for(auto a: vals) tdhfr.EE(count++,0)=a;
 	}
-	else{
-		Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(A);
-		tdhfr.EE=Matrix(eigen_solver.eigenvalues().rows(),1);
-		for(int i = 0; i < tdhfr.EE.rows();i++){tdhfr.EE(i,0)=eigen_solver.eigenvalues()(i,0);}
-	}
-	return tdhfr;
+	return A;
+}
 
+Matrix RPASolver::B1(std::vector<Matrix> C, int S){
+	StringMap & sm = SlaterDet::codes;
+	Matrix B(operators.size(),operators.size());
+	for(int r = 0; r < operators.size(); r++){
+		for(int c = 0; c < operators.size(); c++){
+			int i=operators[r].i,
+			    a=operators[r].j,
+			    j=operators[c].i,
+			    b=operators[c].j;
+
+			B(r,c)=0.0;
+			double sum=0.0;
+			double sum2=0.0;
+			double sum3=0.0;
+			for(int p = sm.nelec; p < sm.norbs; p++){
+			for(int u = 0; u < hfr.nelec; u++){
+				sum+=ic.mov(a,j,u,p)*C[0](decode(u,p),decode(i,b))+ic.mov(b,i,u,p)*C[0](decode(u,p),decode(j,a));
+				sum2+=ic.mov(a,p,u,j)*C[S](decode(i,p),decode(u,b))+ic.mov(b,p,u,i)*C[S](decode(u,a),decode(j,p));
+			}
+			for(int q = sm.nelec; q<sm.norbs; q++){
+				sum3+=ic.mov(a,p,b,q)*C[S](decode(i,p),decode(j,q));
+			}
+			}
+			B(r,c)-=sum*std::pow(-1,S);
+			B(r,c)-=sum2;
+			B(r,c)+=sum3;
+			sum=0.0;
+			for(int u = 0; u < sm.nelec; u++){
+			for(int v = 0; v < sm.nelec; v++){
+				sum+=ic.mov(u,i,v,j)*C[S](decode(u,a),decode(v,b));
+			}}
+			B(r,c)+=sum;
+		}
+	}
+	return B;
+}
+
+Matrix RPASolver::A0(int S){
+	Matrix A(operators.size(),operators.size());
+	for(int r = 0; r < A.rows(); r++){
+		for(int c = 0; c < A.cols(); c++){
+			int i=operators[r].i,
+			    a=operators[r].j,
+			    j=operators[c].i,
+			    b=operators[c].j;
+			A(r,c)=(a==b&&i==j)?(hfr.E(a,0)-hfr.E(i,0)):0.0;
+			double sign=1.0+std::pow(-1.0,(double)S);
+			A(r,c)+=sign*ic.mov(a,i,j,b);
+			A(r,c)-=ic.mov(a,b,j,i);
+		}
+	}
+	return A;
+}
+
+Matrix RPASolver::B0(int S){
+	Matrix B(operators.size(),operators.size());
+	for(int r = 0; r < B.rows(); r++){
+		for(int c = 0; c < B.cols();c++){
+			int i=operators[r].i,
+			    a=operators[r].j,
+			    j=operators[c].i,
+			    b=operators[c].j;
+			switch(S){
+			case 0: B(r,c)=2.0*ic.mov(a,i,b,j)-ic.mov(a,j,b,i);break;
+			case 1: B(r,c)=ic.mov(a,j,b,i);break;
+			default:B(r,c)=0.0;
+			}
+		}
+	}
+	return B;
+}
+
+Matrix RPASolver::constructC(Matrix Y, Matrix Z){
+	Eigen::FullPivLU<Matrix> lu(Y);
+	return Z*lu.inverse();
+
+}
+
+std::vector<Matrix> RPASolver::initC(std::vector<Matrix> Bs){
+	for(int k = 0; k < Bs.size(); k++){
+		for(int r =0; r < Bs[k].rows(); r++){
+		for(int c =0; c < Bs[k].cols(); c++){
+			int i = operators[r].i,
+			    a = operators[r].j,
+			    j = operators[c].i,
+			    b = operators[c].j;
+
+			Bs[k](r,c)=-Bs[k](r,c)/(hfr.E(a,0)+hfr.E(b,0)-hfr.E(i,0)-hfr.E(j,0));
+		}}
+
+	}
+	return Bs; 
+}
+
+int RPASolver::decode(int i , int j){
+	StringMap & sm = SlaterDet::codes;
+
+	return i*(sm.norbs-sm.nelec)+(j-sm.nelec);
 }
 
 

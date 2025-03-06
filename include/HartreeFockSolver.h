@@ -68,17 +68,42 @@ private:
 
 typedef HartreeFockSolver::HFResults hfresults;
 
-class TDHFSolver{
+class RPASolver{
 public:
-	struct TDHFResults{
-		Matrix EE;
+	struct RPAResults{
+		std::vector<double> EE;
+		std::vector<double> sing;
+		std::vector<double> trip;
+	};
+	struct HRPAResults{
+		std::vector<double> EE;
+		std::array<std::vector<double>,2> singtrip;
+		std::vector<Matrix> Cs;
 	};
 public:
-	TDHFSolver(){}
+	RPASolver(IntegralChugger & icref);
 
-	TDHFSolver::TDHFResults TDHFCalc(hfresults & hfr, IntegralChugger & ic,bool TammDancoff=false);
-
+	RPASolver::RPAResults RPACalc(hfresults & hfr, bool TammDancoff=false);
+	RPASolver::RPAResults RPACalcSingTrip(hfresults & hfr, bool TammDancoff=false);
+	RPASolver::HRPAResults HRPACalc(hfresults & hfr, double threshold, int terminate, bool USESCF=true);
 private:
+	Matrix A0();
+	Matrix B0();
+
+	Matrix A0(int S);
+	Matrix B0(int S);
+	
+	Matrix A1(std::vector<Matrix> C, int S);
+	Matrix B1(std::vector<Matrix> C, int S);
+
+	Matrix constructC(Matrix Y, Matrix Z);
+	std::vector<Matrix> initC(std::vector<Matrix> Bs);
+
+	std::vector<PHOp> operators;
+	hfresults hfr;
+	IntegralChugger & ic;
+
+	int decode(int i, int a);
 };
 
 #endif
