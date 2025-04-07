@@ -376,6 +376,9 @@ RPASolver::HRPAResults RPASolver::HRPACalc(hfresults & hfr, double threshold, in
 		B0s.push_back(B0(i));
 	}
 	hrpa.Cs=initC(B0s);
+	for(int i = 0; i < 2; i++){
+		hrpa.Cs[0]=Matrix::Zero(hrpa.Cs[i].rows(),hrpa.Cs[i].cols());
+	}
 
 	threshold=std::pow(threshold,2);
 
@@ -383,11 +386,16 @@ RPASolver::HRPAResults RPASolver::HRPACalc(hfresults & hfr, double threshold, in
 	int ccount=0;
 	do{
 		std::vector<double> oldEE=hrpa.EE;
+		Matrix Sn=S(hrpa.Cs[0]);
+		Matrix Tpn=Tp(Sn),Thn=Th(Sn);
+		std::array<Matrix,2> Xns{X(hrpa.Cs[0]),X(hrpa.Cs[1])};
 
 		std::array<Matrix,2> Y,Z;
 		for(int i = 0; i < 2; i++){
-			Matrix An=A0s[i]+A1(hrpa.Cs,i);
-			Matrix Bn=B0s[i]+B1(hrpa.Cs,i);
+			//Matrix An=A0s[i]+A1(hrpa.Cs,i);
+			//Matrix Bn=B0s[i]+B1(hrpa.Cs,i);
+			Matrix An=A0s[i]+A1new(Tpn,Thn);
+			Matrix Bn=B0s[i]+B1new(Sn,Xns[i],i);
 
 			Eigen::EigenSolver<Matrix> eigen_solver((An-Bn)*(An+Bn));
 			for(int j = 0; j < eigen_solver.eigenvalues().rows(); j++){
@@ -405,18 +413,30 @@ RPASolver::HRPAResults RPASolver::HRPACalc(hfresults & hfr, double threshold, in
 				}
 			}
 
+
 			Y[i]=0.5*(YZ+ZY);
 			Z[i]=0.5*(ZY-YZ);
 		}
 		for(int i = 0;i < 2; i++){
 			hrpa.Cs[i]=constructC(Y[i],Z[i]);
 		}
+		/*std::cout << "HRPA CALC:\n" << 
+			hrpa.Cs[0]<<std::endl << std::endl<<
+			hrpa.Cs[1]<<std::endl << std::endl;
+		*/
+
+		for(int k = 0; k < 2; k++){
+		for(int i = 0; i < operators.size(); i++){
+			hrpa.EE[operators.size()*k+i]=hrpa.singtrip[k][i];
+		}}
+		std::sort(hrpa.EE.begin(),hrpa.EE.end());
 
 		sqdiff=0.0;
 		for(int i = 0; i < hrpa.EE.size(); i++){
 			sqdiff+=std::pow(hrpa.EE[i]-oldEE[i],2);
 		}
 		if(!USESCF)break;
+		std::cout << "SQDIFF: " << sqdiff << std::endl;
 	}while(sqdiff>threshold&&(ccount++<terminate));
 	
 	if(ccount>=terminate){
@@ -486,7 +506,7 @@ Matrix RPASolver::A1(std::vector<Matrix> C,int S){
 			for(int v=0; v < hfr.nelec; v++){
 				A(r,c)-=0.5*(ic.mov(a,u,q,v)*C[0](decode(u,b),decode(v,q))+ic.mov(u,b,v,q)*C[0](decode(u,a),decode(v,q)));
 			}}}}
-			if(i==j){
+			if(a==b){
 			for(int p=sm.nelec; p < sm.norbs; p++){
 			for(int q=sm.nelec; q < sm.norbs; q++){
 			for(int v=0; v < sm.nelec; v++){
@@ -534,6 +554,33 @@ Matrix RPASolver::B1(std::vector<Matrix> C, int S){
 	return B;
 }
 
+Matrix RPASolver::A1new(Matrix Tpk, Matrix Thk){
+	Matrix A1n(operators.size(), operators.size());
+	for(int r = 0; r < A1n.rows(); r++){
+		for(int c = 0; c < A1n.cols(); c++){
+			A1n(r,c)=0.0;
+			if(operators[r].i==operators[c].i){
+				A1n(r,c)+=Tpk(operators[r].j-hfr.nelec,operators[c].j-hfr.nelec);
+			}
+			if(operators[r].j==operators[c].j){
+				A1n(r,c)-=Thk(operators[r].i,operators[c].i);
+			}
+		}
+	}
+	return A1n;
+}
+
+Matrix RPASolver::B1new(Matrix Sk, Matrix Xk, int s){
+	Matrix B1n(operators.size(), operators.size());
+	for(int r = 0; r < B1n.rows(); r++){
+		for(int c = 0; c < B1n.cols(); c++){
+			B1n(r,c)=((s%2==0)?1.0:-1.0)*Sk(r,c);
+			B1n(r,c)+=Xk(r,c);
+		}
+	}
+	return B1n;
+}	
+
 Matrix RPASolver::A0(int S){
 	Matrix A(operators.size(),operators.size());
 	for(int r = 0; r < A.rows(); r++){
@@ -569,10 +616,127 @@ Matrix RPASolver::B0(int S){
 	return B;
 }
 
-Matrix RPASolver::constructC(Matrix Y, Matrix Z){
-	Eigen::FullPivLU<Matrix> lu(Y);
-	return Z*lu.inverse();
+Matrix RPASolver::S(Matrix C0){
+	Matrix Sn(operators.size(),operators.size());
+	for(int r = 0; r < Sn.rows(); r++){
+		for(int c = 0; c < Sn.cols(); c++){
+			int i=operators[r].i,
+			    a=operators[r].j,
+			    j=operators[c].i,
+			    b=operators[c].j;
+			double sum = 0.0;
+			for(int p = hfr.nelec; p < hfr.norbs; p++){
+				for(int u = 0; u < hfr.nelec; u++){
+					sum+=C0(decode(u,p),decode(i,b))*ic.mov(a,j,u,p)+
+						C0(decode(u,p),decode(j,a))*ic.mov(b,i,u,p);
+				}
+			}
+			Sn(r,c)=-sum;	
+		}
+	}
+	return Sn;
+}
 
+Matrix RPASolver::X(Matrix CS){
+	Matrix Xn(operators.size(), operators.size());
+	for(int r = 0; r < Xn.rows(); r++){
+		for(int c = 0; c < Xn.cols(); c++){
+			int i=operators[r].i,
+			    a=operators[r].j,
+			    j=operators[c].i,
+			    b=operators[c].j;
+
+			double sumuv=0.0;
+			for(int u = 0; u < hfr.nelec; u++){
+			for(int v = 0; v < hfr.nelec; v++){
+				sumuv+=CS(decode(u,a),decode(v,b))*ic.mov(u,i,v,j);
+			}}
+			double sumpq=0.0;
+			for(int p = hfr.nelec; p< hfr.norbs; p++){
+			for(int q = hfr.nelec; q< hfr.norbs; q++){
+				sumpq+=CS(decode(i,p),decode(j,q))*ic.mov(a,p,b,q);
+			}}
+			double sumup=0.0;
+			for(int u = 0; u < hfr.nelec; u++){
+			for(int p = hfr.nelec; p < hfr.norbs; p++){
+				sumup+=CS(decode(i,p),decode(u,b))*ic.mov(a,p,u,j)+
+					CS(decode(j,p),decode(u,a))*ic.mov(b,p,u,i);
+			}}
+			Xn(r,c)=sumuv+sumpq-sumup;
+		}
+	}
+	return Xn;
+}
+
+Matrix RPASolver::Tp(Matrix S){
+	int msize=hfr.norbs-hfr.nelec;
+	Matrix Tpn(msize,msize);
+	for(int r = 0; r < Tpn.rows(); r++){
+		for(int c = 0; c < Tpn.cols(); c++){
+			double sum = 0.0;
+			for(int u = 0; u < hfr.nelec; u++){
+				sum+=S(decode(u,r+hfr.nelec),decode(u,c+hfr.nelec));
+			}
+			Tpn(r,c)=0.5*sum;
+		}
+	}
+	return Tpn;
+}
+
+Matrix RPASolver::Th(Matrix S){
+	int msize=hfr.nelec;
+	Matrix Thn(msize,msize);
+	for(int r = 0; r < Thn.rows(); r++){
+		for(int c = 0; c < Thn.cols(); c++){
+			double sum = 0.0;
+			for(int p = hfr.nelec; p < hfr.norbs; p++){
+				sum+=S(decode(r,p),decode(c,p));
+			}
+			Thn(r,c)=-0.5*sum;
+		}
+	}
+	return Thn;
+
+}
+
+Matrix RPASolver::constructC(Matrix Y, Matrix Z){
+	Matrix Cn(operators.size(),operators.size());
+	Matrix Q(operators.size(),operators.size());
+	for(int r= 0; r < Cn.rows(); r++){
+	for(int c = 0; c < Cn.cols(); c++){
+		int i = operators[r].i,
+		    a = operators[r].j,
+		    j = operators[c].i,
+		    b = operators[c].j;
+		Q(r,c)=0.0;
+		Cn(r,c)=0.0;
+		for(int l = 0; l < Z.cols(); l++){
+			Q(r,c)+=Z(r,l)*Z(c,l);
+			Cn(r,c)+=Y(r,l)*Z(c,l);
+		}
+	}}
+	double largestdiff=0.0;
+	do{
+		Matrix Cl=Cn;
+		for(int r= 0; r < Cn.rows(); r++){
+		for(int c = 0; c < Cn.cols(); c++){
+			int i = operators[r].i,
+			    a = operators[r].j,
+			    j = operators[c].i,
+			    b = operators[c].j;
+	
+			for(int q = hfr.nelec; q < hfr.norbs; q++){
+			for(int v = 0; v < hfr.nelec; v++){
+				Cn(r,c)-=Cl(r,decode(v,q))*Q(decode(v,q),c);		
+			}}
+		}}
+		largestdiff=std::abs(Cl(0,0)-Cn(0,0));
+		for(int i = 0; i < Cn.rows(); i++){
+		for(int j = 0; j < Cn.cols(); j++){
+			if(std::abs(Cl(i,j)-Cn(i,j))>largestdiff) largestdiff=std::abs(Cl(i,j)-Cn(i,j));
+		}}
+	}while(largestdiff> 0.00001);
+	return Cn;
 }
 
 std::vector<Matrix> RPASolver::initC(std::vector<Matrix> Bs){

@@ -74,11 +74,54 @@ int main(int argc, char** argv){
 		std::cout << tdhfr.EE[i]<<" " <<tdhfr2.EE[i]<<std::endl;
 	}
 
-	RPASolver::HRPAResults hrpar=tdhfs.HRPACalc(hfr,0.0001,1000);
+	/*
+	RPASolver::HRPAResults hrpar=tdhfs.HRPACalc(hfr,0.0001,1000,true);
 	std::cout << "HRPA EXCITATION ENERGIES:\n";
 	for(int i = 0; i < hrpar.EE.size(); i++){
 		std::cout << hrpar.EE[i]<<" " << std::endl;
 	}
+	*/
+	double sumHF=0.0;
+	for(int i = 0; i < hfr.nelec; i++){
+		sumHF+=2*hfr.E(i,0);
+	}
+	double test=0.0;
+	for(int s1=0; s1 < 2;s1++){
+	for(int i = 0; i < hfr.nelec; i++){
+		for(int s2=0; s2<2; s2++){
+		for(int j = 0; j < hfr.nelec; j++){
+			test+=-.5*(ic.mov(i,i,j,j));
+			if(s1==s2) test+=.5*(ic.mov(i,j,i,j));
+		}}
+	}}
+	std::cout << "TEST: " << test+sumHF << std::endl;
+	
+	int ani=hfr.nelec-1,cre=hfr.nelec;
+	double sumHF2=sumHF,test2=0.0;
+	sumHF2-=hfr.E(ani,0)+hfr.E(cre,0);
+	std::vector<int> occ;
+	for(int s=0; s <2; s++){
+		for(int i = 0; i < hfr.nelec; i++){
+			if(s*hfr.norbs+i==ani)continue;
+			occ.push_back(s*hfr.norbs+i);
+		}
+	}
+	occ.push_back(cre);
+	for(int i = 0; i < occ.size(); i++){
+		for(int j = 0; j < occ.size(); j++){
+			int ii=occ[i]%hfr.norbs, jj=occ[j]%hfr.norbs;
+			int is=occ[i]/hfr.norbs, js=occ[j]%hfr.norbs;
+
+			test2+=-.5*(ic.mov(ii,ii,jj,jj));
+			if(is==js) test2+=.5*(ic.mov(ii,jj,ii,jj));
+		}
+	}
+	
+
+	std::cout << "TEST2: " << test2+sumHF2<<std::endl;
+	std::cout << "DIFF: " << test2-test << std::endl;
+	std::cout << "AC: " << ic.mov(ani,ani,cre,cre)-ic.mov(ani,cre,cre,ani)<<std::endl;
+	std::cout << "RATIO: " << (test2-test)/(ic.mov(ani,ani,cre,cre)-ic.mov(ani,cre,cre,ani));
 
 	return 0;
 
@@ -332,7 +375,7 @@ int main(int argc, char** argv){
 		std::cout << i<< " " << excitations[0][i] << std::endl;
 	}
 	PoleSearch ps(&fcis,&gr,&ic,hfr,fcir,mbptr);
-	for(int i = 1; i <= 10; i++){
+	for(int i = 1; i <= 4; i++){
 		
 		std::vector<double> rexcitations=ps.refinePointsOrder(excitations[i-1],0.000001,i);
 	
@@ -356,7 +399,7 @@ int main(int argc, char** argv){
 
 	bool outputEE=true;
 	if(outputEE){
-		std::ofstream eefile("Output/eevalsN");
+		std::ofstream eefile("Output/eevalsN2");
 		std::stack<double> line;
 		for(int i = 0; i < excitations[excitations.size()-1].size();i++){
 			line.push(excitations[excitations.size()-1][i]);

@@ -95,6 +95,14 @@ private:
 	
 	Matrix A1(std::vector<Matrix> C, int S);
 	Matrix B1(std::vector<Matrix> C, int S);
+	Matrix A1new(Matrix Tp, Matrix Th);
+	Matrix B1new(Matrix S, Matrix X, int s);
+
+	Matrix S(Matrix C0);
+	Matrix X(Matrix CS);
+	Matrix Tp(Matrix C0);
+	Matrix Th(Matrix C0);
+
 
 	Matrix constructC(Matrix Y, Matrix Z);
 	std::vector<Matrix> initC(std::vector<Matrix> Bs);

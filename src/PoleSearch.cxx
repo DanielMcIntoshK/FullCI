@@ -80,8 +80,8 @@ std::vector<double> PoleSearch::refinePointsOrder(std::vector<double> EE, double
 			std::vector<Matrix> ise=gr->ComputeSelfEnergies(energies[i],order,hfr,igreens);
 
 			Matrix iseSum=ise[1];
-			for(int i=2; i < order;i++){iseSum+=ise[i];}
-
+			for(int i=2; i <= order;i++){iseSum+=ise[i];}
+			
 			Matrix md=(Matrix::Identity(G0i.rows(),G0i.cols()))*energies[i]-G0i+iseSum;
 			
 			Eigen::SelfAdjointEigenSolver<Matrix> eig_solver(md);
