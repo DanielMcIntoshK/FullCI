@@ -50,6 +50,8 @@ public:
 	double operator() (int a, int b, int c, int d){return tbv(a,b,c,d);}
 	double tbv(int a, int b, int c, int d);
 	double mov(int a, int b, int c, int d);
+	double movsym(int a, int b, int c, int d, int norbs);
+	double movsymphys(int a, int b, int c, int d, int norbs);
 
 	void TransformInts(Matrix & C);
 	void TransformFock(Matrix & C, Matrix & G);

@@ -21,13 +21,25 @@ SlaterDet::SlaterDet(int alpidx, int betidx){
 
 void SlaterDet::print(){
 	for(int j = 0; j < SlaterDet::codes.codeblklen;j++){
-		std::bitset<8> pbs(SlaterDet::codes.strs[aidx][SlaterDet::codes.codeblklen-1-j]);
-		std::cout << pbs << " ";
+		//std::bitset<8> pbs(SlaterDet::codes.strs[aidx][SlaterDet::codes.codeblklen-1-j]);
+		//std::cout << pbs << " ";
+		for(int b=0; b < 8; b++){
+			if(SlaterDet::codes.strs[aidx][j]&(1<<b)){
+				std::cout << 1;
+			}
+			else std::cout << 0;
+		}
 	}
 	std::cout << std::endl;
 	for(int j = 0; j < SlaterDet::codes.codeblklen;j++){
-		std::bitset<8> pbs(SlaterDet::codes.strs[bidx][SlaterDet::codes.codeblklen-1-j]);
-		std::cout << pbs << " ";
+		//std::bitset<8> pbs(SlaterDet::codes.strs[bidx][SlaterDet::codes.codeblklen-1-j]);
+		//std::cout << pbs << " ";
+		for(int b=0; b < 8; b++){
+			if(SlaterDet::codes.strs[bidx][j]&(1<<b)){
+				std::cout << 1;
+			}
+			else std::cout << 0;
+		}
 	}
 	std::cout << std::endl;
 }

@@ -26,6 +26,8 @@ public:
 	Matrix ComputeGreens(double E, IntegralChugger & ic, HartreeFockSolver::HFResults &hf, FullCISolver::FCIResults & fcir);
 	Matrix ComputeSelfEnergy(double E, HartreeFockSolver::HFResults &hf, Matrix & G, bool verbose=false);
 
+	void TransformEigen(Matrix & m, HartreeFockSolver::HFResults & hf);
+
 	std::vector<Matrix> ComputeSelfEnergies(double E, int order, HartreeFockSolver::HFResults & hfr, std::vector<Matrix> greens);
 
 	std::vector<double> computeAvOc_Pure(Matrix state);

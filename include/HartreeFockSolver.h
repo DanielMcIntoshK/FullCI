@@ -44,10 +44,13 @@ public:
 		int norbs;
 
 		std::vector<PHOp> operators;
+		std::vector<std::vector<int>> phlist;
 
 		void buildOperators();
 		Matrix getG0(double E);
 		Matrix getG0i(double E);
+		Matrix getIndependentG0();
+		Matrix getIndependentG0i();
 	};
 public:
 	HartreeFockSolver();

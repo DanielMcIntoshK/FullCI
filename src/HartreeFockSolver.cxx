@@ -9,34 +9,45 @@ void HartreeFockSolver::HFResults::buildOperators(){
 	operators.clear();
 	for(int s = 0; s < 2; s++){
 		for(int i = 0; i < nelec; i++){
-			for(int r = nelec; r < norbs; r++){
-				operators.push_back(PHOp(i+norbs*s,r+norbs*s));
+			for(int a = nelec; a < norbs; a++){
+				operators.push_back(PHOp(i+norbs*s,a+norbs*s));
 			}
 		}
 	}
 	for(int s = 0; s < 2; s++){
 		for(int i = 0; i < nelec; i++){
-			for(int r = nelec; r < norbs; r++){
-				operators.push_back(PHOp(r+norbs*s,i+norbs*s));
+			for(int a = nelec; a < norbs; a++){
+				operators.push_back(PHOp(a+norbs*s,i+norbs*s));
 			}
+		}
+	}
+	phlist.resize(2);
+	for(int s = 0; s < 2; s++){
+		for(int i = 0; i < nelec; i++){
+			phlist[0].push_back(i+norbs*s);
+		}
+		for(int i = nelec; i < norbs; i++){
+			phlist[1].push_back(i+norbs*s);
 		}
 	}
 }
 
 Matrix HartreeFockSolver::HFResults::getG0(double w){
 	Matrix G0(operators.size(),operators.size());
-	for(int i = 0; i < G0.rows(); i++){
-		for(int j = 0; j < G0.cols();j++){
-			if(i==j){
-				if((operators[i].j%norbs)>(operators[i].i%norbs)){
-					G0(i,i)=1.0/(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
+	for(int r = 0; r < G0.rows(); r++){
+		for(int c = 0; c < G0.cols();c++){
+			if(r==c){
+				int ik=operators[r].i%norbs, jk=operators[r].j%norbs;
+				if(ik<nelec&&jk>=nelec){
+					G0(r,r)=1.0/(w+E(jk,0)-E(ik,0));
 				}
-				else{
-					G0(i,i)=-1.0/(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
+				else if(jk<nelec&&ik>=nelec){
+					G0(r,r)=-1.0/(w-E(ik,0)+E(jk,0));
 				}
+				else{G0(r,r)=0.0;}
 			}
 			else{
-				G0(i,j)=0.0;
+				G0(r,c)=0.0;
 			}
 		}
 	}
@@ -45,23 +56,57 @@ Matrix HartreeFockSolver::HFResults::getG0(double w){
 
 Matrix HartreeFockSolver::HFResults::getG0i(double w){
 	Matrix G0i(operators.size(),operators.size());
-	for(int i = 0; i < G0i.rows(); i++){
-		for(int j = 0; j < G0i.cols();j++){
-			if(i==j){
-				if((operators[i].j%norbs)>(operators[i].i%norbs)){
-					G0i(i,i)=(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
+	for(int r = 0; r < G0i.rows(); r++){
+		for(int c = 0; c < G0i.cols();c++){
+			if(r==c){
+				int ik=operators[r].i%norbs, jk = operators[r].j%norbs;
+				if(ik < nelec && jk >= nelec){
+					G0i(r,r)=w+E(jk,0)-E(ik,0);
+					//G0i(i,i)=(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
 				}
-				else{
-					G0i(i,i)=-(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
+				else if(ik >= nelec && jk < nelec){
+					G0i(r,r)=-(w-E(ik,0)+E(jk,0));
+					//G0i(i,i)=-(w-(E(operators[i].j%norbs,0)-E(operators[i].i%norbs,0)));
 				}
+				else{G0i(r,r)=0.0;}
 			}
 			else{
-				G0i(i,j)=0.0;
+				G0i(r,c)=0.0;
 			}
 		}
 	}
 	return G0i;
 
+}
+
+Matrix HartreeFockSolver::HFResults::getIndependentG0(){
+	Matrix G0(operators.size(), operators.size());
+	for(int r = 0; r < G0.rows(); r++){
+		for(int c = 0; c < G0.cols();c++){
+			if(r==c){
+				int ik=operators[r].i%norbs, jk=operators[r].j%norbs;
+				if(ik<nelec&&jk>=nelec){
+					G0(r,r)=1.0/(E(jk,0)-E(ik,0));
+				}
+				else if(jk<nelec&&ik>=nelec){
+					G0(r,r)=-1.0/(-E(ik,0)+E(jk,0));
+				}
+				else{G0(r,r)=0.0;}
+			}
+			else{
+				G0(r,c)=0.0;
+			}
+		}
+	}
+	return G0;
+}
+
+Matrix HartreeFockSolver::HFResults::getIndependentG0i(){
+	Matrix G0i=getIndependentG0();
+	for(int i = 0; i < G0i.rows(); i++){
+		G0i(i,i)=1.0/G0i(i,i);
+	}
+	return G0i;
 }
 
 HartreeFockSolver::HartreeFockSolver(){
@@ -286,6 +331,15 @@ RPASolver::RPAResults RPASolver::RPACalc(hfresults & hr,bool td){
 
 	Matrix A=A0(), B=B0();
 
+	Matrix ABare=A;
+	for(int i = 0;i < A.rows(); i++){
+		int k=operators[i].i%sm.norbs;
+		int c=operators[i].j%sm.norbs;
+		ABare(i,i)-=hfr.E(c,0)-hfr.E(k,0);
+	}
+	std::cout << "AMATRIX:\n" << ABare << std::endl << std::endl << "BMATRIX:\n"<<B << std::endl << std::endl;
+
+
 	RPASolver::RPAResults tdhfr;
 	if(!td){
 		Eigen::EigenSolver<Matrix> eigen_solver((A-B)*(A+B));
@@ -462,6 +516,7 @@ Matrix RPASolver::A0(){
 			A(r,c)=(r==c)?(hfr.E(a,0)-hfr.E(i,0)):0.0;
 			A(r,c)+=ic.mov(a,i,j,b);
 			if(ispin==jspin) A(r,c)-=ic.mov(a,b,j,i);
+
 		}
 	}	
 	return A;

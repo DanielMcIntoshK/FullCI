@@ -81,49 +81,6 @@ int main(int argc, char** argv){
 		std::cout << hrpar.EE[i]<<" " << std::endl;
 	}
 	*/
-	double sumHF=0.0;
-	for(int i = 0; i < hfr.nelec; i++){
-		sumHF+=2*hfr.E(i,0);
-	}
-	double test=0.0;
-	for(int s1=0; s1 < 2;s1++){
-	for(int i = 0; i < hfr.nelec; i++){
-		for(int s2=0; s2<2; s2++){
-		for(int j = 0; j < hfr.nelec; j++){
-			test+=-.5*(ic.mov(i,i,j,j));
-			if(s1==s2) test+=.5*(ic.mov(i,j,i,j));
-		}}
-	}}
-	std::cout << "TEST: " << test+sumHF << std::endl;
-	
-	int ani=hfr.nelec-1,cre=hfr.nelec;
-	double sumHF2=sumHF,test2=0.0;
-	sumHF2-=hfr.E(ani,0)+hfr.E(cre,0);
-	std::vector<int> occ;
-	for(int s=0; s <2; s++){
-		for(int i = 0; i < hfr.nelec; i++){
-			if(s*hfr.norbs+i==ani)continue;
-			occ.push_back(s*hfr.norbs+i);
-		}
-	}
-	occ.push_back(cre);
-	for(int i = 0; i < occ.size(); i++){
-		for(int j = 0; j < occ.size(); j++){
-			int ii=occ[i]%hfr.norbs, jj=occ[j]%hfr.norbs;
-			int is=occ[i]/hfr.norbs, js=occ[j]%hfr.norbs;
-
-			test2+=-.5*(ic.mov(ii,ii,jj,jj));
-			if(is==js) test2+=.5*(ic.mov(ii,jj,ii,jj));
-		}
-	}
-	
-
-	std::cout << "TEST2: " << test2+sumHF2<<std::endl;
-	std::cout << "DIFF: " << test2-test << std::endl;
-	std::cout << "AC: " << ic.mov(ani,ani,cre,cre)-ic.mov(ani,cre,cre,ani)<<std::endl;
-	std::cout << "RATIO: " << (test2-test)/(ic.mov(ani,ani,cre,cre)-ic.mov(ani,cre,cre,ani));
-
-	return 0;
 
 	FullCISolver fcis;
 	FullCISolver::FCIResults fcir =fcis.fci(ic,hfr,1.0);
@@ -131,6 +88,7 @@ int main(int argc, char** argv){
 	std::cout << "FCI E: " << fcir.eigenvalues(0,0) +hfr.enuc << std::endl;
 	
 	double E=.2;
+	std::cout << "ETEST: " << hfr.E(hfr.operators[0].i,0) << " " << hfr.E(hfr.operators[0].j,0)<<std::endl;
 
 	std::cout << "ATEMPTING TO BUILD FULL GREEN'S FUNCTION\n";
 	GreensCalculator gr;
@@ -144,8 +102,8 @@ int main(int argc, char** argv){
 	std::cout << std::endl;
 	for(int i = 0; i < avocc.size(); i++) std::cout << avocc1[i] << " ";
 	std::cout << std::endl;
-	
-	int order=10;
+
+	int order=20;
 	FullCISolver::MBPTResults mbptr=fcis.mbpt(hfr,order);
 
 	double EFC=0.0;
@@ -160,18 +118,28 @@ int main(int argc, char** argv){
 		EFC+=mbptr.energies[i];
 	}
 	std::cout << EFC+hfr.enuc << std::endl;
+	
+	/*
+	PoleSearch pls(&fcis,&gr,&ic,hfr,fcir,mbptr);
+	double E_s=0.0;
+	double E_f=1.5;
+	int steps=10000;
+	double dE=(E_f-E_s)/((double)steps);	
+	
+	pls.mapSelfEnergy(E_s,dE,steps,"Output/new_Mmap");
+	*/
 
-	
-	
 	//CALCULATE GREENS FUNCTION RECURSIVELY
-	std::vector<Matrix> greens=fcis.recursivegreen(order,E,hfr,mbptr);
+	std::cout << "COMPUTING GREENS FUNCTION RECURSIVELY\n";
+	int recursiveorder=4;
+	std::vector<Matrix> greens=fcis.recursivegreen(recursiveorder,E,hfr,mbptr);
 	Matrix rg=greens[0];
 	std::cout << "0th order: \n";
 	std::cout << greens[0] << std::endl<< std::endl << " " << rg(1,2) << std::endl;
-	for(int i = 1; i <=order; i++){
+	for(int i = 1; i <=recursiveorder; i++){
 		rg+=greens[i];
-		//std::cout << i << "th order:\n";
-		//std::cout << greens[i] << std::endl<<std::endl;
+		std::cout << i << "th order:\n";
+		std::cout << greens[i] << std::endl<<std::endl;
 		double max=0.0;
 		int ri=0,ci=0;
 		Matrix sdiff=rg-greensfull;
@@ -184,7 +152,7 @@ int main(int argc, char** argv){
 				}
 			}
 		}
-		std::cout << i << " " << max << " " << ri << " " << ci << " " << rg(ri,ci)<<" " << greensfull(ri,ci)<<std::endl;
+		//std::cout << i << " " << max << " " << ri << " " << ci << " " << rg(ri,ci)<<" " << greensfull(ri,ci)<<std::endl;
 	}
 
 	
@@ -206,7 +174,7 @@ int main(int argc, char** argv){
 	
 	std::cout << "EXACT: " <<greensfull(p,q) << std::endl;
 	double val = 0;
-	for(int i = 0; i <= order; i++){
+	for(int i = 0; i <= recursiveorder; i++){
 		val+= greens[i](p,q);
 		std::cout << i << ": " << val <<  " " << greens[i](p,q) << " " << greens[i](q,p) <<  std::endl;
 	}
@@ -216,7 +184,7 @@ int main(int argc, char** argv){
 	std::vector<double> grid;
 	double gridspace=0.1;
 	grid.push_back(0.0);
-	int lambdaorder = 11;
+	int lambdaorder = 2;
 	for(int i = 1; i <=lambdaorder/2; i++){
 		grid.push_back(gridspace*i);
 		grid.push_back(-gridspace*i);
@@ -225,6 +193,11 @@ int main(int argc, char** argv){
 	
 	std::cout << "GREENS NUMERICAL\n";
 	Matrix greensNum=greensnum[0];
+	for(int r = 0; r < greensNum.rows(); r++){
+	for(int c = 0; c < greensNum.cols(); c++){
+		if(std::abs(greensnum[0](r,c))<0.000000000001)greensnum[0](r,c)=0.0;
+	}
+	}
 	std::cout << "0th:\n" << greensnum[0]<<std::endl<<std::endl;
 	for(int i = 1; i <= lambdaorder; i++){
 		std::cout << i<<"th:\n" << greensnum[i]<<std::endl<<std::endl;
@@ -259,6 +232,7 @@ int main(int argc, char** argv){
 		}
 		std::cout << i << " " << max << std::endl;
 	}
+	//return 0;
 
 	//SELF ENERGY CALCULATIONS
 	Matrix Mfull=gr.ComputeSelfEnergy(E,hfr,greensfull);
@@ -269,8 +243,10 @@ int main(int argc, char** argv){
 	std::cout << "SELF ENERGY NUMERICAL\n";
 	Matrix seSum=Matrix::Zero(senum[1].rows(),senum[1].cols());;
 	for(int i = 1; i < senum.size();i++){
-		//std::cout << i<<"th:\n"<<senum[i]<<std::endl<<std::endl;
+		std::cout << i<<"th:\n"<<senum[i]<<std::endl<<std::endl;
 		seSum+=senum[i];
+		
+		/*
 		double max = 0.0;
 		int ri=0,ci=0;
 		//Matrix sumdiff=serecursive[i]-senum[i];
@@ -284,17 +260,184 @@ int main(int argc, char** argv){
 				}
 			}
 		}
-		std::cout << i << " " << max << " "<<ri<<" " << ci<<" "<<Mfull(ri,ci) << " " << seSum(ri,ci)<< std::endl;
+		//std::cout << i << " " << max << " "<<ri<<" " << ci<<" "<<Mfull(ri,ci) << " " << seSum(ri,ci)<< std::endl;
+		*/
 	}
 	std::cout << "SUM\n" << seSum<<std::endl<<std::endl;
 
+	std::cout << "OPERATORS:\n";
+	for(int i = 0; i < hfr.operators.size(); i++){
+		std::cout << i<<" "<<hfr.operators[i].i << " " << hfr.operators[i].j<<std::endl;
+	}
+
+	std::cout << "G0:\n" << hfr.getG0(E) << std::endl<<std::endl;
+
 	std::cout << greens[1].rows() << " " << greens[1].cols() << " " << hfr.operators.size()<<std::endl;;
 	std::cout << "SELF ENERGY RECURSIVE\n"<<hfr.operators.size()<<std::endl;;
-	std::vector<Matrix> serecursive=gr.ComputeSelfEnergies(E,order,hfr,greens);
+	std::vector<Matrix> serecursive=gr.ComputeSelfEnergies(E,recursiveorder,hfr,greens);
+	
+	int o1=3,o2=4;
+	std::cout << "G_("<<hfr.operators[o1].i<< " " <<hfr.operators[o1].j
+		<<","<<hfr.operators[o2].i<<" " <<hfr.operators[o2].j<<")="
+		<< serecursive[2](o1,o2)<<std::endl;
+	std::vector<double> gs;
+	gs.resize(8);
+	int i=hfr.operators[o1].i;
+	int in=i%hfr.norbs;
+	int j=hfr.operators[o2].i;
+	int jn=i%hfr.norbs;
+	int a=hfr.operators[o1].j;
+	int an=a%hfr.norbs;
+	int b=hfr.operators[o2].j;
+	int bn=b%hfr.norbs;
+	double testv=0.0,testv2=0.0;
+	std::cout << "PHLIST:\n";
+	for(int i = 0; i < hfr.phlist[0].size(); i++){
+		std::cout << hfr.phlist[0][i]<<" ";
+	}
+	std::cout << "\n";
+	for(int i = 0; i < hfr.phlist[1].size(); i++){
+		std::cout << hfr.phlist[1][i]<<" ";
+	}
+	std::cout << "INFO: " << 
+		"\ni: " << i/hfr.norbs << " " << i%hfr.norbs<< 
+		"\nj: " << j/hfr.norbs << " " << j%hfr.norbs<< 
+		"\na: " << a/hfr.norbs << " " << a%hfr.norbs<< 
+		"\nb: " << b/hfr.norbs << " " << b%hfr.norbs<< std::endl; 
+	for(int k = 0; k < hfr.phlist[0].size(); k++){
+		if(hfr.phlist[0][k]==i || hfr.phlist[0][k]==j) continue;
+		for(int c = 0; c<hfr.phlist[1].size(); c++){
+			if(hfr.phlist[1][c]==a || hfr.phlist[1][c]==b) continue;
+			int ks = hfr.phlist[0][k];
+			int cs = hfr.phlist[1][c];
+			int kn = ks%hfr.norbs,
+			    cn = cs%hfr.norbs;
+			double eps1=hfr.E(jn,0)+hfr.E(kn,0)-hfr.E(bn,0)-hfr.E(cn,0);
+			double delt1=E+hfr.E(an,0)+hfr.E(bn,0)+hfr.E(cn,0)-
+				hfr.E(in,0)-hfr.E(jn,0)-hfr.E(kn,0);
+			double delt2=E+hfr.E(bn,0)-hfr.E(jn,0);
+			double num=ic.movsymphys(j,ks,b,cs,-hfr.norbs)*
+				ic.movsymphys(a,cs,i,ks,hfr.norbs);
+			testv+=-num/(eps1*delt1*delt2);
+			testv2+=-num/(eps1*delt1*delt2);
+			std::cout << c<< " " << k << " " <<cn << " " << kn << " " <<cs/hfr.norbs << " " << ks/hfr.norbs << " " <<num << std::endl; 
+		}
+	}
+	std::cout << "TEST Z1G1Z0: " << testv <<" " << testv2<<std::endl;
+	for(int k = 0; k < hfr.phlist[0].size(); k++){
+		for(int c = 0; c<hfr.phlist[1].size(); c++){
+			int kn = hfr.phlist[0][k]%hfr.norbs,
+			    cn = hfr.phlist[1][c]%hfr.norbs;
+			double eps1=hfr.E(jn,0)+hfr.E(kn,0)-hfr.E(bn,0)-hfr.E(cn,0);
+			double delt1=-E+hfr.E(an,0)-hfr.E(in,0);
+			double delt2=-E+hfr.E(cn,0)-hfr.E(kn,0);
+			double num=ic.movsymphys(j,k,b,c,hfr.norbs)*
+				ic.movsymphys(j,c,b,k,hfr.norbs);
+			testv+=-num/(eps1*delt1*delt2);
+		}
+	}
+
+	if(a==b){
+	for(int k = 0; k < hfr.phlist[0].size(); k++){
+		for(int l = 0; l < hfr.phlist[0].size(); l++){
+			for(int c = 0; c<hfr.phlist[1].size(); c++){
+				int kn = hfr.phlist[0][k]%hfr.norbs,
+				    ln = hfr.phlist[0][l]%hfr.norbs,
+				    cn = hfr.phlist[1][c]%hfr.norbs;
+				double denom=E+hfr.E(an,0)+hfr.E(cn,0)-hfr.E(kn,0)-hfr.E(ln,0);
+				double num=ic.movsymphys(k,l,c,i,hfr.norbs)*
+					ic.movsymphys(j,c,k,l,hfr.norbs);
+				gs[0]+= -num/(denom*2);
+			}
+		}
+	}
+	}
+	else{ gs[0]=0.0;}
+	gs[1]=0.0;
+	for(int k = 0; k < hfr.phlist[0].size(); k++){
+		for(int c = 0; c<hfr.phlist[1].size(); c++){
+			int kn = hfr.phlist[0][k]%hfr.norbs,
+			    cn = hfr.phlist[1][c]%hfr.norbs;
+			double denom=E+hfr.E(bn,0)+hfr.E(cn,0)-hfr.E(in,0)-hfr.E(kn,0);
+			double num=ic.movsymphys(k,a,b,c,hfr.norbs)*
+				ic.movsymphys(j,c,k,i,hfr.norbs);
+			gs[2]+=-num/(denom);
+		}
+	}
+	for(int k = 0; k < hfr.phlist[0].size(); k++){
+		for(int c = 0; c<hfr.phlist[1].size(); c++){
+			int kn = hfr.phlist[0][k]%hfr.norbs,
+			    cn = hfr.phlist[1][c]%hfr.norbs;
+			double denom=E+hfr.E(an,0)+hfr.E(cn,0)-hfr.E(jn,0)-hfr.E(kn,0);
+			double num=ic.movsymphys(j,k,c,i,hfr.norbs)*
+				ic.movsymphys(c,a,b,k,hfr.norbs);
+			gs[3]+=-num/(denom);
+		}
+	}
+	for(int k = 0; k < hfr.phlist[0].size(); k++){
+		for(int l = 0; l<hfr.phlist[0].size(); l++){
+			int kn = hfr.phlist[0][k]%hfr.norbs,
+			    ln = hfr.phlist[0][l]%hfr.norbs;
+			double denom=E+hfr.E(an,0)+hfr.E(bn,0)-hfr.E(kn,0)-hfr.E(ln,0);
+			double num=ic.movsymphys(k,l,b,i,hfr.norbs)*
+				ic.movsymphys(j,a,k,l,hfr.norbs);
+			gs[4]+=+num/(denom*2);
+		}
+	}
+	for(int d = 0; d < hfr.phlist[1].size(); d++){
+		for(int c = 0; c<hfr.phlist[1].size(); c++){
+			int dn = hfr.phlist[1][d]%hfr.norbs,
+			    cn = hfr.phlist[1][c]%hfr.norbs;
+			double denom=E+hfr.E(cn,0)+hfr.E(dn,0)-hfr.E(jn,0)-hfr.E(in,0);
+			double num=ic.movsymphys(j,a,c,d,hfr.norbs)*
+				ic.movsymphys(c,d,b,i,hfr.norbs);
+			gs[5]+=+num/(denom*2);
+		}
+	}
+	gs[6]=0.0;
+	if(a==b){
+	for(int k = 0; k < hfr.phlist[0].size(); k++){
+		for(int d = 0; d < hfr.phlist[1].size(); d++){
+			for(int c = 0; c<hfr.phlist[1].size(); c++){
+				int kn = hfr.phlist[0][k]%hfr.norbs,
+				    dn = hfr.phlist[1][d]%hfr.norbs,
+				    cn = hfr.phlist[1][c]%hfr.norbs;
+				double eps1=hfr.E(in,0)+hfr.E(kn,0)-hfr.E(cn,0)-hfr.E(dn,0);
+				double eps2=hfr.E(jn,0)+hfr.E(kn,0)-hfr.E(cn,0)-hfr.E(dn,0);
+				double num1=E+hfr.E(an,0)+hfr.E(cn,0)+hfr.E(dn,0)-hfr.E(in,0)
+					-hfr.E(jn,0)-hfr.E(kn,0);
+				double ints=ic.movsymphys(j,k,c,d,hfr.norbs)*
+					ic.movsymphys(c,d,i,k,hfr.norbs);
+				
+				double num=num1*ints;
+				double denom=eps1*eps2;
+
+				gs[7]+= -num/(denom*2);
+			}
+		}
+	}
+	}
+	else{ gs[7]=0.0;}
+	double sum =0.0;
+	for(int i = 0; i < gs.size(); i++){
+		std::cout << i << " " << gs[i]<<std::endl;
+		sum+=gs[i];
+	}
+	std::cout << "SUM: " << sum<<std::endl;
+	
 	seSum=Matrix::Zero(seSum.rows(),seSum.cols());
-	for(int i = 1; i < std::min(serecursive.size(),senum.size()-1);i++){
-		//std::cout << i<<"th:\n"<<serecursive[i]<<std::endl<<std::endl;
+	for(int i = 1; i < serecursive.size();i++){
+		std::cout << i<<"th:\n"<<serecursive[i]<<std::endl<<std::endl;
 		seSum+=serecursive[i];
+		Matrix sepr=seSum;
+
+		/*
+		Matrix G0itemp=hfr.getIndependentG0i();
+		sepr=G0itemp-sepr;
+		gr.TransformEigen(sepr,hfr);
+
+		//std::cout << i << "th Eigen:\n" << sepr << std::endl << std::endl;
+
 		double max = 0.0;
 		int ri=0,ci=0;
 		//Matrix sumdiff=serecursive[i]-senum[i];
@@ -309,11 +452,33 @@ int main(int argc, char** argv){
 			}
 		}
 		std::cout << i << " " << max << " "<<ri<<" " << ci<<" "<<serecursive[i](ri,ci) << " " << senum[i](ri,ci)<< std::endl;
+		*/
 	}
 	std::cout << "SUM\n"<<seSum<<std::endl<<std::endl;
 
 	std::cout << "Full M\n" << Mfull <<std::endl<<std::endl;
 
+	std::cout << "GV TEST\n";
+	StringMap & sm = SlaterDet::codes;
+	for(int i = 0; i < sm.strs.size(); i++){
+		std::cout << i << " ";
+		for(int j = 0; j < sm.codeblklen; j++){
+			for(int k = 0; k < 8; k++){
+				if(k+8*j>=sm.norbs) break;
+
+				bool bon=sm.strs[i][j] &(1<<k);
+				if(bon) std::cout << "1";
+				else std::cout << "0";
+			}
+		}
+		std::cout << std::endl;
+	}
+	i = 3, j =4, a=5, b=6;
+	std::cout << "|0>G1<5|: TARGET: "<<-.25*ic.movsym(i,a,j,b,sm.norbs)/(E*(E+hfr.E(a,0)+hfr.E(b,0)-hfr.E(i,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](0,5)<<std::endl;
+
+
+	return 0;
+	/*
 	std::ofstream gnum("Output/gnum.vals");
 	gnum << "Greens Function Numerically Derived\n";
 	for(int i = 0; i <= 5; i++){
@@ -362,6 +527,7 @@ int main(int argc, char** argv){
 		}
 	}
 	mrec.close();
+	*/
 	
 
 	//std::vector<double> excitations;
@@ -374,13 +540,27 @@ int main(int argc, char** argv){
 		//excitations[0][i]=tdhfr.EE(i,0);
 		std::cout << i<< " " << excitations[0][i] << std::endl;
 	}
+
 	PoleSearch ps(&fcis,&gr,&ic,hfr,fcir,mbptr);
-	for(int i = 1; i <= 4; i++){
+	for(int i = 1; i <= order; i++){
+		std::cout << "REFINING " << i << "st ORDER\n";
 		
 		std::vector<double> rexcitations=ps.refinePointsOrder(excitations[i-1],0.000001,i);
 	
-		excitations.push_back(std::vector<double>());
-
+		for(int i = 0; i < rexcitations.size(); i++){
+			std::cout << i << " " << rexcitations[i] << std::endl;
+		}
+		//excitations.push_back(std::vector<double>());
+		
+		std::vector<double> nonduplicate;
+		nonduplicate.push_back(rexcitations[0]);
+		for(int j = 1; j < rexcitations.size();j++){
+			if(std::abs(rexcitations[j]-rexcitations[j-1])>0.00001){
+				nonduplicate.push_back(rexcitations[j]);
+			}
+		}
+		excitations.push_back(nonduplicate);
+		/*
 		std::cout << "REFINED "<<i<<"st ORDER\n";
 		for(int j = 0; j < rexcitations.size();j++){
 			if(j==0 || std::abs(rexcitations[j]-rexcitations[j-1])>0.0001){
@@ -388,10 +568,12 @@ int main(int argc, char** argv){
 				std::cout << j << " " <<  rexcitations[j]<<std::endl;
 			}
 		}
+		*/
+		
+		//excitations.push_back(rexcitations);
 	}
 	excitations.push_back(ps.refinePoints(excitations[excitations.size()-1],0.000001));
 	std::cout << "REFINED FULL\n";
-
 
 	for(int i = 0; i < excitations[excitations.size()-1].size();i++){
 		std::cout << i << " " <<  excitations[excitations.size()-1][i]<<std::endl;
@@ -399,7 +581,7 @@ int main(int argc, char** argv){
 
 	bool outputEE=true;
 	if(outputEE){
-		std::ofstream eefile("Output/eevalsN2");
+		std::ofstream eefile("Output/eevalsX2");
 		std::stack<double> line;
 		for(int i = 0; i < excitations[excitations.size()-1].size();i++){
 			line.push(excitations[excitations.size()-1][i]);

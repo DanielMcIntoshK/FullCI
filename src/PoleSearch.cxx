@@ -14,30 +14,33 @@ PoleSearch::PoleSearch(FullCISolver * fci_, GreensCalculator * gr_,IntegralChugg
 std::vector<double> PoleSearch::refinePoints(std::vector<double> EE, double threshold){
 	std::vector<double> energies;
 	energies.resize(EE.size());
+	Matrix G0i=hfr.getIndependentG0i();
 	for(int i = 0; i < energies.size();i++){
 		energies[i]=EE[i];
 
 		double diff=0.0;
 		int n=0;
 		do{
-			Matrix G0i=hfr.getG0i(energies[i]);
 			Matrix igreen=gr->ComputeGreens(energies[i], *ic,hfr,fcir);
 			Matrix iM=gr->ComputeSelfEnergy(energies[i],hfr,igreen);
-			Matrix md=(Matrix::Identity(G0i.rows(),G0i.cols()))*energies[i]-G0i+iM;
-			
-			Eigen::SelfAdjointEigenSolver<Matrix> eig_solver(md);
+			//Matrix md=(Matrix::Identity(G0i.rows(),G0i.cols()))*energies[i]-G0i+iM;
+			//Matrix md=iM-G0i;
+			Matrix md=iM-G0i;
+			gr->TransformEigen(md,hfr);
 
-			double lowest=std::abs(energies[i]-eig_solver.eigenvalues()(0,0));
+			Eigen::EigenSolver<Matrix> eig_solver(md);
+
+			double lowest=std::abs(energies[i]-eig_solver.eigenvalues()(0,0).real());
 			int lowesti=0;
 			for(int k = 1; k < eig_solver.eigenvalues().rows();k++){
-				double idiff=std::abs(energies[i]-eig_solver.eigenvalues()(k,0));
+				double idiff=std::abs(energies[i]-eig_solver.eigenvalues()(k,0).real());
 				if(idiff<lowest){
 					lowest=idiff;
 					lowesti=k;
 				}
 			}
 			diff=lowest;
-			energies[i]=eig_solver.eigenvalues()(lowesti,0);
+			energies[i]=eig_solver.eigenvalues()(lowesti,0).real();
 		}while((diff>threshold)&&(threshold>=0.0)&&(n++)<50);
 		if(n>50){std::cout << "WARNING THRESHOLD NOT REACHED\n";}
 	}
@@ -47,49 +50,36 @@ std::vector<double> PoleSearch::refinePoints(std::vector<double> EE, double thre
 std::vector<double> PoleSearch::refinePointsOrder(std::vector<double> EE, double threshold,int order){
 	StringMap & sm=SlaterDet::codes;
 
-	std::vector<double> avocc=gr->computeAvOc_Pure(fcir.eigenvectors.col(0));
-
 	std::vector<double> energies;
 	energies.resize(EE.size());
 
 	std::vector<PHOp> &operators=hfr.operators;
 
+	Matrix G0i=hfr.getIndependentG0i();
 	for(int i = 0; i < energies.size();i++){
 		energies[i]=EE[i];
 
 		double diff=0.0;
 		int n = 0;
 		do{
-			/*
-			//This is an issue. Need to standardize G0i
-			Matrix G0i(operators.size(),operators.size());
-			for(int r = 0; r < G0i.rows(); r++){
-				for(int c = 0; c < G0i.cols(); c++){
-					if(r==c){
-						G0i(r,r)=energies[i]-(hfr.E(operators[r].j%sm.norbs,0)-hfr.E(operators[r].i%sm.norbs,0));
-					}
-					else{
-						G0i(r,c)=0.0;
-					}
-				}
-			}
-			*/
-			Matrix G0i=hfr.getG0i(energies[i]);
 
 			std::vector<Matrix> igreens=fci->recursivegreen(order,energies[i],hfr,mbptr);
 			std::vector<Matrix> ise=gr->ComputeSelfEnergies(energies[i],order,hfr,igreens);
 
 			Matrix iseSum=ise[1];
 			for(int i=2; i <= order;i++){iseSum+=ise[i];}
-			
-			Matrix md=(Matrix::Identity(G0i.rows(),G0i.cols()))*energies[i]-G0i+iseSum;
-			
-			Eigen::SelfAdjointEigenSolver<Matrix> eig_solver(md);
 
-			double lowest=std::abs(energies[i]-eig_solver.eigenvalues()(0,0));
+			//Matrix md=(Matrix::Identity(G0i.rows(),G0i.cols()))*energies[i]-G0i+iseSum;
+			//Matrix md=iseSum-G0i;
+			Matrix md=iseSum-G0i;
+			gr->TransformEigen(md,hfr);
+
+			Eigen::EigenSolver<Matrix> eig_solver(md);
+
+			double lowest=std::abs(energies[i]-eig_solver.eigenvalues()(0,0).real());
 			int lowesti=0;
 			for(int k = 1; k < eig_solver.eigenvalues().rows();k++){
-				double idiff=std::abs(energies[i]-eig_solver.eigenvalues()(k,0));
+				double idiff=std::abs(energies[i]-eig_solver.eigenvalues()(k,0).real());
 				if(idiff<lowest){
 					lowest=idiff;
 					lowesti=k;
@@ -97,7 +87,7 @@ std::vector<double> PoleSearch::refinePointsOrder(std::vector<double> EE, double
 			}
 			
 			diff=lowest;
-			energies[i]=eig_solver.eigenvalues()(lowesti,0);
+			energies[i]=eig_solver.eigenvalues()(lowesti,0).real();
 		}while((diff>threshold)&&(threshold>=0.0)&&(n++)<50);
 		if(n>50){std::cout << "WARNING THRESHOLD NOT REACHED ON "<<i<<std::endl;}
 	}
@@ -108,7 +98,7 @@ std::vector<double> PoleSearch::refinePointsOrder(std::vector<double> EE, double
 
 std::vector<double> PoleSearch::scan(double E_s, double dE, int steps,std::string filename){
 	
-	std::vector<double> avocc=gr->computeAvOc_Pure(fcir.eigenvectors.col(0));
+	//std::vector<double> avocc=gr->computeAvOc_Pure(fcir.eigenvectors.col(0));
 
 	std::ofstream outfile;
 	if(filename!="")outfile.open(filename);
@@ -188,5 +178,64 @@ double PoleSearch::detval(double E){
 	
 	//return luinverse.determinant();
 	return 0;
+}
+
+void PoleSearch::mapSelfEnergy(double E_s, double dE, int steps, std::string filename){
+
+	std::vector<std::vector<double>>evs;
+	evs.resize(steps);
+	int cpercent=-1;
+	Matrix G0i=hfr.getIndependentG0i();
+	for(int n = 0; n < steps; n++){
+		int percent=(int)(100.0*(double)n/(double)steps);
+		int fivepercent=5*(percent/5);
+		if(fivepercent>cpercent){
+			cpercent=fivepercent;
+			std::cout << cpercent<<"%"<<std::endl;
+		}
+		double E_n=E_s+(double)n*dE;
+		
+		Matrix igreen=gr->ComputeGreens(E_n, *ic,hfr,fcir);
+		Matrix iM=gr->ComputeSelfEnergy(E_n,hfr,igreen);
+		//Matrix md=(Matrix::Identity(G0i.rows(),G0i.cols()))*E_n-G0i+iM;
+		Matrix md=iM-G0i;
+		
+		gr->TransformEigen(md,hfr);
+
+		evs[n].resize(md.rows());
+		for(int i = 0; i < md.rows();i++){
+			evs[n][i]=md(i,i);
+		}
+		continue;
+		Eigen::EigenSolver<Matrix> eig_solver(md);
+
+		
+		double lowest=std::abs(E_n-eig_solver.eigenvalues()(0,0).real());
+		int lowesti=0;
+		for(int k = 1; k < eig_solver.eigenvalues().rows();k++){
+			double idiff=std::abs(E_n-eig_solver.eigenvalues()(k,0).real());
+			if(idiff<lowest){
+				lowest=idiff;
+				lowesti=k;
+			}
+		}
+		//evs[n]=eig_solver.eigenvalues()(lowesti,0).real();
+		
+		evs[n].resize(eig_solver.eigenvalues().rows());
+		for(int i = 0; i < eig_solver.eigenvalues().rows();i++){
+			evs[n][i]=eig_solver.eigenvalues()(i,0).real();
+		}
+	}
+	std::ofstream outfile(filename);
+	for(int n = 0; n < steps; n++){
+		double E_n = E_s+(double)n*dE;
+		outfile<<E_n;
+		//outfile << E_n<<" " << evs[n];
+		for(int i = 0; i < evs[n].size(); i++){
+			outfile<<" "<<evs[n][i];
+		}
+		outfile << std::endl;
+	}
+	outfile.close();
 }
 

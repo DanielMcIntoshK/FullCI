@@ -242,6 +242,32 @@ double IntegralChugger::mov(int a, int b, int c, int d){
 	return moi[cord[0]][cord[1]][cord[2]][cord[3]];
 }
 
+double IntegralChugger::movsym(int a, int b, int c, int d, int norbs){
+	int an=a%norbs, as=a/norbs,
+	    bn=b%norbs, bs=b/norbs,
+	    cn=c%norbs, cs=c/norbs,
+	    dn=d%norbs, ds=d/norbs;
+
+	bool verbose=norbs<0;
+	norbs=std::abs(norbs);
+
+	double v=0.0;
+	if((as==bs) && (cs==ds)){
+		if(verbose) std::cout << "a==b&&c==d (ab|cd)=" <<mov(an,bn,cn,dn)<<std::endl;
+		v+=mov(an,bn,cn,dn);
+
+	}
+	if((as==ds) && (bs==cs)){
+		if(verbose) std::cout << "a==d&&b==c (ad|cb)" << mov(an,dn,cn,bn)<<std::endl;
+		v-=mov(an,dn,cn,bn);
+	}
+	return v;
+}
+
+double IntegralChugger::movsymphys(int a, int b, int c, int d, int norbs){
+	return movsym(a,c,b,d,norbs);
+}
+
 void IntegralChugger::TransformInts(Matrix & C){
 	moi = tbi;
 

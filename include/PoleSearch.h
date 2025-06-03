@@ -14,6 +14,7 @@ public:
 	std::vector<double> refinePointsOrder(std::vector<double> EE, double threshold, int order);
 
 	std::vector<double> scan(double E_s, double dE, int steps, std::string filename="");
+	void mapSelfEnergy(double E_s, double dE, int steps, std::string filename);
 
 	double refinePoint(double point,double threshold);
 private:

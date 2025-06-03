@@ -33,6 +33,9 @@ class FullCISolver{
 		std::vector<Matrix> recursivegreen(int order, double E, HartreeFockSolver::HFResults & hf, FullCISolver::MBPTResults & mbptr); 
 
 		void cleanup();
+
+		std::vector<Matrix> Gm_p, Gm_n;
+		std::vector<Matrix> z,za;
 	private:
 		void computeHamiltonian();
 		double matrixEl(int x, int y);

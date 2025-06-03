@@ -73,6 +73,7 @@ FullCISolver::MBPTResults FullCISolver::mbpt(HartreeFockSolver::HFResults & hf,i
 	}
 	//std::cout << H0 << std::endl;
 
+
 	std::cout << "INITIALIZING ZEROTH ORDER WAVEFUNCTION AND ENERGY\n";
 	Matrix y_0=Matrix::Zero(CIMat.rows(),1);
 	y_0(0,0)=1.0;
@@ -137,7 +138,7 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 
 	StringMap & sm = SlaterDet::codes;
 	
-	//std::vector<Matrix> Gm_p,Gm_n;
+	std::vector<Matrix> Gm_p,Gm_n;
 	Gm_p.resize(order+1);
 	Gm_n.resize(order+1);
 
@@ -147,19 +148,26 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 	Gm_p[0]=Matrix::Zero(cisize,cisize);
 	Gm_n[0]=Matrix::Zero(cisize,cisize);
 	for(int i = 0; i < cisize;i++){
-		Gm_p[0](i,i)=1.0/( E-H0(0,0)+H0(i,i));
-		Gm_n[0](i,i)=1.0/(-E-H0(0,0)+H0(i,i));
+		Gm_p[0](i,i)=1.0/(E+H0(i,i)-H0(0,0));
+		Gm_n[0](i,i)=1.0/(E-H0(i,i)+H0(0,0));	
 	}
+	//std::cout << std::setprecision(3) << H0 -H0(0,0)*Matrix::Identity(cisize,cisize)<< std::endl << std::endl;
+	//std::cout << "MIDDLE Naughts:\n" << Gm_p[0] << "\n\n"<<Gm_n[0]<<"\n\n";
+
+	//std::cout << 1.0/(-.2-H0(10,10)+H0(0,0)) << std::endl;
+	int aix = 10%strcnt, bix=10/strcnt;
+	//std::cout << std::bitset<8>(sm.strs[aix][0]) << " " << std::bitset<8>(sm.strs[bix][0]) << std::endl;
+
 	for(int n = 1; n <=order;n++){
 		Gm_p[n]=Matrix::Zero(cisize,cisize);
-		Gm_n[n]=Matrix::Zero(cisize,cisize);
-		
 		Gm_p[n]+=-Gm_p[n-1]*V*Gm_p[0];
-		Gm_n[n]+=-Gm_n[n-1]*V*Gm_n[0];
+		
+		Gm_n[n]=Matrix::Zero(cisize,cisize);
+		Gm_n[n]+=Gm_n[n-1]*V*Gm_n[0];
 
 		for(int k =1; k <= n; k++) {
 			Gm_p[n]+= Gm_p[n-k]*mbptr.energies[k]*Gm_p[0];
-			Gm_n[n]+= Gm_n[n-k]*mbptr.energies[k]*Gm_n[0];
+			Gm_n[n]+=-Gm_n[n-k]*mbptr.energies[k]*Gm_n[0];
 		}
 	}
 
@@ -178,7 +186,7 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 	std::vector<Matrix> G_n;
 	G_n.resize(order+1);
 
-	//std::vector<Matrix> z,za;
+	std::vector<Matrix> z,za;
 	std::vector<double> D;
 	z.resize(order+1);
 	za.resize(order+1);
@@ -210,56 +218,36 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 				if(index2!=-1) za[n](r,c)+=sign2*mbptr.wavefunctions[n](index2,0);
 			}
 		}
-		if(n==1){
-			std::cout << "Zs Non-Zero\n";
-			for(int r = 0; r < z[1].rows(); r++){
-			for(int c = 0; c < z[1].cols(); c++){
-				if(c!=3 && c!=4) continue;
-				if(std::abs(z[1](r,c)>0.000001)){
-					int alphaidx=r%strcnt,betaidx=r/strcnt;
-					
-					std::cout << r << " " << c << " ";
-					for(int k = 0; k < sm.norbs; k++){
-						int blk = k/8, bli = k%8;
-						if(sm.strs[alphaidx][blk] & (1<<bli)) std::cout << "1";
-						else std::cout << "0";
+		if(n==0){
+			std::cout << n << ": Zs\n";
+			std::cout <<"Z\n";
+			for(int c = 0; c < z[n].cols(); c++){
+				std::cout << "Opperator: " << operators[c].i << "->"<<operators[c].j<<"  \t";
+				for(int r = 0; r < z[n].rows(); r++){
+					if(std::abs(z[n](r,c))>0.000001){
+						//SlaterDet sd(r%sm.strs.size(),r/sm.strs.size());
+						//sd.print();
+						//std::cout << "\n";
+						std::cout << r << " ";
 					}
-					std::cout << " ";
-					for(int k = 0; k < sm.norbs; k++){
-						int blk = k/8, bli = k%8;
-						if(sm.strs[betaidx][blk] & (1<<bli)) std::cout << "1";
-						else std::cout << "0";
-					}
-					std::cout << " ";
-					std::cout << z[0](r,c)<<std::endl;
 				}
+				std::cout << std::endl;
 			}
-			}
-			std::cout << "Zas Non-Zero\n";
-			for(int r = 0; r < za[1].rows(); r++){
-			for(int c = 0; c < za[1].cols(); c++){
-				if(c!=3 && c!=4) continue;
-				if(std::abs(za[1](r,c)>0.000001)){
-					int alphaidx=r%strcnt,betaidx=r/strcnt;
-					
-					std::cout << r << " " << c << " ";
-					for(int k = 0; k < sm.norbs; k++){
-						int blk = k/8, bli = k%8;
-						if(sm.strs[alphaidx][blk] & (1<<bli)) std::cout << "1";
-						else std::cout << "0";
+			std::cout <<"Za\n";
+			for(int c = 0; c < za[n].cols(); c++){
+				std::cout << "Opperator: " << operators[c].j << "->"<<operators[c].i<<"  \t";
+				for(int r = 0; r < za[n].rows(); r++){
+					if(std::abs(za[n](r,c))>0.000001){
+						//SlaterDet sd(r%sm.strs.size(),r/sm.strs.size());
+						//sd.print();
+						//std::cout << std::endl;
+						std::cout << r << " ";
 					}
-					std::cout << " ";
-					for(int k = 0; k < sm.norbs; k++){
-						int blk = k/8, bli = k%8;
-						if(sm.strs[betaidx][blk] & (1<<bli)) std::cout << "1";
-						else std::cout << "0";
-					}
-					std::cout << " ";
-					std::cout <<za[0](r,c)<<std::endl;
 				}
-			}
+				std::cout << std::endl;
 			}
 		}
+
 		//std::cout << "CALCULATING D\n";
 		D[n]=0.0;
 		for(int i=0; i <= n; i++){
@@ -271,29 +259,78 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 			G_r=Matrix::Zero(operators.size(), operators.size());
 		for(int i = 0; i <= n; i++){
 		for(int j = 0; j <= n-i; j++){
-				G_f=za[n-i-j].transpose()*Gm_p[j]*za[i];
-				G_r=z[n-i-j].transpose()*Gm_n[j]*z[i];
-				if(n==2){
-					std::cout << "Z" << i<<"G"<<j<<"Z" <<n-i-j<<"_3,4 " << G_f(3,4)<<std::endl;
-					std::cout << "Z" << i<<"G"<<j<<"Z" <<n-i-j<<"_3,4 " << G_r(4,3)<<std::endl;
-					std::cout << std::endl;
-					std::cout << "Z" << i<<"G"<<j<<"Z" <<n-i-j<<"_3,4 " << G_f(4,3)<<std::endl;
-					std::cout << "Z" << i<<"G"<<j<<"Z" <<n-i-j<<"_3,4 " << G_r(3,4)<<std::endl;
-					std::cout << std::endl;
-					//std::cout << "Z1G1Z0_3,4 " << G_r(3,4)<<std::endl;
-					//std::cout << "Z1G1Z0_3,4 " << G_r(3,4)<<std::endl;
-				}
-				G_n[n]+=G_f+G_r.transpose();
-				//G_n[n]+=G_r-G_f.transpose();
+				G_f=za[i].transpose()*Gm_n[j]*za[n-i-j];
+				G_r=z[i].transpose()*Gm_p[j]*z[n-i-j];
+				G_n[n]+=G_f-G_r.transpose();
 			}
-		}
-		for(int i =1; i <=n; i++){
-			G_n[n]-=D[i]*G_n[n-i];
+			if(i>0) G_n[n]-=D[i]*G_n[n-i];
 		}
 	}
+	//std::cout << std::setprecision(3) <<z[0] << std::endl << std::endl << za[0] << std::endl << std::endl; 
+	/*
+	Matrix G_0=Matrix::Zero(operators.size(),operators.size());
+	for(int i = 0; i < G_0.rows();i++){
+		unsigned char * alphacpy1=sm.cpystrs[0], *betacpy1=sm.cpystrs[1],
+				*alphacpy2=sm.cpystrs[2], *betacpy2=sm.cpystrs[3];
+		
+		for(int k = 0; k < 4; k++)memcpy(sm.cpystrs[k],sm.strs[0],sm.codeblklen);
+
+		//std::cout << std::bitset<8>(sm.cpystrs[0][0]) << std::endl;
+
+		double sign1=opOnSlater(operators[i],alphacpy1,betacpy1);
+		double sign2=opOnSlater(operators[i].adjoint(),alphacpy2,betacpy2);
+		std::cout << "G_0 values: " << operators[i].i << " " << operators[i].j << " ";
+		if(sign1!=0.0){
+			std::cout << std::endl <<i << " OPERATOR SUCCESS\n";
+			std::cout << "1:"<<E<<":"<<hfr.E(operators[i].i%sm.norbs,0)<<":"<<hfr.E(operators[i].j%sm.norbs)<<":";
+			G_0(i,i)+=1.0/(E+hfr.E(operators[i].i%sm.norbs,0)-hfr.E(operators[i].j%sm.norbs,0));
+			std::cout <<  G_0(i,i) << " ";
+		}
+		if(sign2!=0.0){
+			std::cout << std::endl <<i << " ADJOINT SUCCESS\n";
+			std::cout << "2:"<<E<<":"<<hfr.E(operators[i].i%sm.norbs,0)<<":"<<hfr.E(operators[i].j%sm.norbs)<<":";
+			G_0(i,i)-=1.0/(E+hfr.E(operators[i].i%sm.norbs,0)-hfr.E(operators[i].j%sm.norbs,0));
+			std::cout << G_0(i,i);
+		}
+		std::cout << std::endl;
+	}
+	*/
 
 	return G_n;
 }
+
+/*
+void FullCISolver::buildOperators(std::vector<double> avocc, HartreeFockSolver::HFResults &hf){
+	StringMap & sm = SlaterDet::codes;
+	operators.clear();
+	/
+	for(int s = 0; s<2; s++){
+		for(int i = 0; i < sm.norbs; i++){
+			for(int j = 0; j < sm.norbs; j++){
+				if((i!=j)&&(avocc[i]>avocc[j])){
+					operators.push_back(PHOp(i+sm.norbs*s,j+sm.norbs*s));	
+				}
+			}
+		}
+	}
+	/
+	//operators.clear();
+	for(int s = 0; s<2; s++){
+		for(int i = 0; i < sm.nelec;i++){
+			for(int r = sm.nelec; r < sm.norbs; r++){
+				operators.push_back(PHOp(i+sm.norbs*s, r+sm.norbs*s));
+			}
+		}
+		for(int i = 0; i < sm.nelec; i++){
+			for(int r = sm.nelec; r < sm.norbs; r++){
+				operators.push_back(PHOp(r+sm.norbs*s,i+sm.norbs*s));
+			}
+		}
+	}
+	
+}
+*/
+
 
 void FullCISolver::computeHamiltonian(){
 	std::cout << "COMPUTING FCI HAMILTONIAN\n";

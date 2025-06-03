@@ -139,6 +139,20 @@ Matrix GreensCalculator::ComputeSelfEnergy(double E, HartreeFockSolver::HFResult
 	return G0i-inverse;
 }
 
+void GreensCalculator::TransformEigen(Matrix & m, HartreeFockSolver::HFResults & hf){
+	if(m.rows()!=hf.operators.size()) return;
+
+	for(int i = 0; i < hf.operators.size(); i++){
+		PHOp op=hf.operators[i];
+		int oi=hf.operators[i].i%hf.norbs;
+		if(oi>=hf.nelec){
+			for(int j = 0; j < hf.operators.size(); j++){
+				m(i,j)=-m(i,j);
+			}
+		}
+	}
+}
+
 Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fcir){
 	StringMap & sm = SlaterDet::codes;
 	
@@ -169,9 +183,11 @@ Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fc
 	std::vector<double> Ep,Em;
 	Ep.resize(evecs.rows());Em.resize(evecs.rows());
 	for(int i = 0; i < evecs.rows();i++){
-		double w0M=evals(i,0)-evals(0,0);
-		Ep[i]=1.0/(E+w0M);
-		Em[i]=1.0/(E-w0M);
+		double E0=evals(0,0), EM=evals(i,0);
+		Em[i]=1.0/(-E-E0+EM);
+		Ep[i]=1.0/(+E-E0+EM);
+		//Ep[i]=1.0/(E+w0M);
+		//Em[i]=1.0/(E-w0M);
 	}
 
 	Matrix prop(operators.size(),operators.size());
@@ -186,7 +202,7 @@ Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fc
 double GreensCalculator::calcPropEl_Smart(int p, int q,Matrix & OM, Matrix & MO, std::vector<double> & Ep, std::vector<double> & Em){
 	double val=0.0;
 	for(int n = 1; n < OM.cols();n++){
-		val+=(MO(p,n)*MO(q,n))*Em[n]-(OM(q,n)*OM(p,n))*Ep[n];
+		val+=(MO(p,n)*MO(q,n))*Ep[n]+(OM(q,n)*OM(p,n))*Em[n];
 	}
 	return val;
 }
