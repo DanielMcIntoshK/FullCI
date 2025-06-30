@@ -14,6 +14,75 @@ int choose(int n, int m){
 	return rfactorial(n,n-m)/rfactorial(m);
 }
 
+std::string StringMap::strlit(int i){
+	std::string strtext="";
+	
+	unsigned char * str=strs[i];
+	for(int block = 0; block < codeblklen; block++){
+		unsigned char c = str[block];
+		for(int bit = 0; bit < 8; bit++){
+			if(bit+block*8>=norbs) break;
+
+			strtext.append((c&1<<bit)?"1":"0");
+		}
+	}
+	return strtext;
+}
+
+std::vector<std::vector<int>> StringMap::strph(int i, bool alpha){
+	std::vector<int> holes, parts;
+
+	unsigned char * str=strs[i];
+	for(int block = 0; block < codeblklen; block++){
+		unsigned char c = str[block];
+		for(int bit = 0; bit < 8; bit++){
+			int k = bit+block*8;
+			if(k>=norbs)break;
+
+			int kp=k;
+			if(!alpha) kp+=norbs;
+			
+			bool biton=c&1<<bit;
+			if(!biton&&k<nelec) holes.push_back(kp);
+			else if(biton&&k>=nelec)parts.push_back(kp);
+		}
+	}
+	return std::vector<std::vector<int>>{holes,parts};
+}
+
+std::string StringMap::printstrab(int i){
+	return strlit(i%strs.size()) + " " + strlit(i/strs.size());
+}
+
+std::string StringMap::printstrphab(int i){
+	std::vector<std::vector<int>> aph=strph(i%strs.size(), true), bph=strph(i/strs.size(),false);
+
+	std::string strtext="0_";
+	for(int i = 0; i < aph[0].size(); i++){
+		if(i!=0) strtext+=",";
+		strtext+=std::to_string(aph[0][i]);
+	}
+	for(int i = 0; i < bph[0].size(); i++){
+		if(!aph[0].empty()) strtext+=",";
+		strtext+=std::to_string(bph[0][i]);
+	}
+	strtext+="^";
+	for(int i = 0; i < aph[1].size(); i++){
+		if(i!=0) strtext+=",";
+		strtext+=std::to_string(aph[1][i]);
+	}
+	for(int i = 0; i < bph[1].size(); i++){
+		if(!aph[1].empty()) strtext+=",";
+		strtext+=std::to_string(bph[1][i]);
+	}
+
+	return strtext;
+}
+
+SlaterDet::SlaterDet(int strn){
+	aidx=strn%SlaterDet::codes.strs.size();
+	bidx=strn/SlaterDet::codes.strs.size();
+}
 SlaterDet::SlaterDet(int alpidx, int betidx){
 	aidx=alpidx;
 	bidx=betidx;

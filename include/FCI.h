@@ -36,14 +36,14 @@ class FullCISolver{
 
 		std::vector<Matrix> Gm_p, Gm_n;
 		std::vector<Matrix> z,za;
-	private:
+	//private:
 		void computeHamiltonian();
 		double matrixEl(int x, int y);
 
 		double secondQuantMatel1e(SlaterDet & s1, SlaterDet & s2,SlaterCompare & sc);
 		double secondQuantMatel2e(SlaterDet & s1, SlaterDet & s2,SlaterCompare & sc);
 
-	private:
+	//private:
 		double  opOnSlater(PHOp op, unsigned char * alpha, unsigned char * beta);
 
 		IntegralChugger * ints;

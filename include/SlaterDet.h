@@ -2,6 +2,7 @@
 #define SLATERDET__H_
 #include <vector>
 #include <array>
+#include <string>
 
 int rfactorial(int n,int m=1);
 int choose(int n, int m);
@@ -12,6 +13,11 @@ struct StringMap{
 	std::array<unsigned char *,4> cpystrs;
 	int norbs;
 	int nelec;
+
+	std::string strlit(int i);
+	std::string printstrab(int i);
+	std::vector<std::vector<int>> strph(int i, bool alpha=true);
+	std::string printstrphab(int i);
 };
 
 struct SlaterCompare{
@@ -20,6 +26,7 @@ struct SlaterCompare{
 
 class SlaterDet{
 public:
+	SlaterDet(int strn);
 	SlaterDet(int alpidx, int betidx);
 
 	void print();

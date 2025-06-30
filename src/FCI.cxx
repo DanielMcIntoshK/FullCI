@@ -274,14 +274,9 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 				G_f=za[n-i-j].transpose()*Gm_p[j]*za[i];
 				G_r=z[n-i-j].transpose()*Gm_n[j]*z[i];
 				if(n==2){
-					std::cout << "Z" << i<<"G"<<j<<"Z" <<n-i-j<<"_3,4 " << G_f(3,4)<<std::endl;
-					std::cout << "Z" << i<<"G"<<j<<"Z" <<n-i-j<<"_3,4 " << G_r(4,3)<<std::endl;
+					std::cout << "Z" << i<<"G+"<<j<<"Z" <<n-i-j<<"_3,4 " << G_f(3,4)<<std::endl;
+					std::cout << "Z" << i<<"G-"<<j<<"Z" <<n-i-j<<"_3,4 " << G_r(4,3)<<std::endl;
 					std::cout << std::endl;
-					std::cout << "Z" << i<<"G"<<j<<"Z" <<n-i-j<<"_3,4 " << G_f(4,3)<<std::endl;
-					std::cout << "Z" << i<<"G"<<j<<"Z" <<n-i-j<<"_3,4 " << G_r(3,4)<<std::endl;
-					std::cout << std::endl;
-					//std::cout << "Z1G1Z0_3,4 " << G_r(3,4)<<std::endl;
-					//std::cout << "Z1G1Z0_3,4 " << G_r(3,4)<<std::endl;
 				}
 				G_n[n]+=G_f+G_r.transpose();
 				//G_n[n]+=G_r-G_f.transpose();

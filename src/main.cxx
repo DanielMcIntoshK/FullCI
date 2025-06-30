@@ -474,8 +474,496 @@ int main(int argc, char** argv){
 		std::cout << std::endl;
 	}
 	i = 3, j =4, a=5, b=6;
-	std::cout << "|0>G1<5|: TARGET: "<<-.25*ic.movsym(i,a,j,b,sm.norbs)/(E*(E+hfr.E(a,0)+hfr.E(b,0)-hfr.E(i,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](0,5)<<std::endl;
+	std::cout << "|0>G1<5|: TARGET: "<<-ic.movsym(i,a,j,b,sm.norbs)/(E*(E+hfr.E(a,0)+hfr.E(b,0)-hfr.E(i,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](0,5)<<std::endl;
+	i = 3, j =4, a=5, b=6;
+	std::cout << "|3>G1<2|: TARGET: "<<-ic.movsym(a,i,j,b,sm.norbs)/((E+hfr.E(a,0)-hfr.E(i,0))*(E+hfr.E(b,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](3,2)<<std::endl;
+	i = 4, j =4, a=5, b=6;
+	std::cout << "|1>G1<2|: TARGET: "<<-ic.movsym(a,i,j,b,sm.norbs)/((E+hfr.E(a,0)-hfr.E(j,0))*(E+hfr.E(b,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](1,2)<<std::endl;
+	i = 3, j =3, a=5, b=6;
+	double sumk=-ic.movsym(a,i,j,b,sm.norbs);
+	//for(int k = 0; k < hfr.phlist[0].size(); k++){
+	for(int k = 0; k < hfr.nelec; k++){
+		int ki = hfr.phlist[0][k];
+		if(ki==i)continue;
+		sumk+=-ic.movsym(a,ki,ki,b,sm.norbs);
+	}
+	std::cout <<sumk << std::endl;
+	std::cout << "|3>G1<4|: TARGET: "<<-ic.movsym(a,i,j,b,sm.norbs)/((E+hfr.E(a,0)-hfr.E(i,0))*(E+hfr.E(b,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](3,4)<<std::endl;
 
+	int opk=0, opl=3;
+	opk=3; opl=4;
+	std::cout << "OPP: " << opk << " " << hfr.operators[opk].i << " " << hfr.operators[opk].j << std::endl;
+	std::vector<int> valids;
+	for(int i = 0; i < fcis.za[1].rows(); i++){
+		int strcnt = sm.strs.size();
+		int alphaidx=i%strcnt, betaidx=i/strcnt;
+		unsigned char * alphacpy=sm.cpystrs[0],*betacpy=sm.cpystrs[1];
+		memcpy(alphacpy, sm.strs[alphaidx],sm.codeblklen);
+		memcpy(betacpy,sm.strs[betaidx],sm.codeblklen);
+		double sign = fcis.opOnSlater(hfr.operators[opk].adjoint(),alphacpy, betacpy);
+
+		if(sign!=0.0)valids.push_back(i);
+	}
+
+	int singleexcite=-1;
+	std::cout << "OPP: " << opl << " " << hfr.operators[opl].i << " " << hfr.operators[opl].j << std::endl;
+	for(int i = 0; i < fcis.za[0].rows(); i++){
+		if(std::abs(fcis.za[0](i,opl))>0.0000000001){
+			std::cout << sm.printstrphab(i) << " " << sm.printstrab(i)<< " " << fcis.za[0](i,opl)<<std::endl;
+			singleexcite=i;
+		}
+	}
+
+	for(int i = 0; i < valids.size(); i++){
+		SlaterDet se=SlaterDet(singleexcite), vi=SlaterDet(valids[i]);
+		SlaterCompare scdet=compareSlaterDet(se,vi);
+
+		if(scdet.diff.size()<=4){
+			
+			std::string prstr=sm.printstrphab(valids[i]);
+			std::cout << prstr;
+
+			int loopcount=prstr.size()/4;
+			if(loopcount%4!=0)loopcount-=1;
+		       
+			for(int i = 0; i < 6-loopcount;i++){
+				std::cout << "\t";
+			}
+			std::cout << sm.printstrab(valids[i]) << 
+				" " << fcis.za[1](valids[i],opk) << " " << scdet.diff.size() << std::endl;
+		}
+	}
+	std::cout << "12345678901234567890\n";
+	std::cout << "\ta\n";
+	std::cout << ic.movsymphys(5,12,2,9,sm.norbs)/(hfr.E(2,0)+hfr.E(9%7,0)-hfr.E(5,0)-hfr.E(12%7,0))<< std::endl;
+	std::cout << ic.movsymphys(12,5,2,9,sm.norbs)/(hfr.E(2,0)+hfr.E(9%7,0)-hfr.E(5,0)-hfr.E(12%7,0))<< std::endl;
+	double sumtest = 0.0;
+	//for(int i = 0; i < fcis.Gm_p[0].rows(); i++){
+	for(int i = 0; i < valids.size(); i++){
+		SlaterDet basese=SlaterDet(0);
+
+		SlaterDet se=SlaterDet(singleexcite), vi=SlaterDet(valids[i]);
+		SlaterCompare scdet=compareSlaterDet(se,vi);
+		SlaterCompare scdet1=compareSlaterDet(se,basese), scdet2 = compareSlaterDet(vi,basese);
+		
+		if(scdet.diff.size()<=4){
+
+			sumtest+=fcis.za[0](singleexcite,opl)*fcis.Gm_p[1](singleexcite,valids[i])*fcis.za[1](valids[i],opk);
+			//sumtest+=fcis.za[0](j,opk)*fcis.Gm_p[1](j,i)*fcis.za[1](i,opl);
+			//std::cout << sm.printstrphab(valids[i]) << " " <<fcis.za[0](singleexcite,opl) << " " << fcis.Gm_p[1](singleexcite,valids[i]) << " " 
+			//	<< fcis.za[1](valids[i],opk) << std::endl;
+		}
+	}
+	std::cout << sumtest << std::endl;
+	std::cout << (fcis.za[0].transpose()*fcis.Gm_p[1]*fcis.za[1])(opl,opk)<<std::endl;
+
+	std::cout << std::endl;
+	double sumdiagram=0.0;
+	int opsize=hfr.norbs;
+	int ii=hfr.operators[opk].i,ai=hfr.operators[opk].j,
+	    ji=hfr.operators[opl].i,bi=hfr.operators[opl].j;
+	std::swap(ii,ji); std::swap(ai,bi);
+
+	int ik=ii%opsize,ak=ai%opsize,jk=ji%opsize,bk=bi%opsize;
+
+
+	
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			//if(ki==ii||ki==ji) continue;
+			//if(ci==ai||ci==bi) continue;
+			double int1=ic.movsymphys(ci,bi,ji,ki,opsize),
+			       int2=ic.movsymphys(ii,ki,ci,ai,opsize);
+			double denom1=1.0/(hfr.E(jk,0)+hfr.E(kk,0)-hfr.E(ck,0)-hfr.E(bk,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(ak,0)+hfr.E(bk,0)-hfr.E(jk,0)-hfr.E(ik,0)-hfr.E(kk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
+
+			sumdiagram-=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	std::cout << "Z1G1Z0: " << sumdiagram << std::endl;
+	sumdiagram=0.0;
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			//if(ki==ii||ki==ji) continue;
+			//if(ci==ai||ci==bi) continue;
+			double int1=ic.movsymphys(ci,bi,ji,ki,opsize),
+			       int2=ic.movsymphys(ii,ki,ci,ai,opsize);
+			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
+			       denom2=1.0/(E+hfr.E(ak,0)+hfr.E(bk,0)+hfr.E(ck,0)-hfr.E(ik,0)-hfr.E(jk,0)-hfr.E(kk,0)),
+				denom3=1.0/(hfr.E(ik,0)+hfr.E(kk,0)-hfr.E(ck,0)-hfr.E(ak,0));
+
+			sumdiagram-=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	std::cout << "Z0G1Z1: " << sumdiagram << std::endl;
+	sumdiagram=0.0;
+	
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			//if(ki==ii||ki==ji) continue;
+			//if(ci==ai||ci==bi) continue;
+			double int1=ic.movsymphys(ji,ki,bi,ci,opsize),
+			       int2=ic.movsymphys(ai,ci,ii,ki,opsize);
+			double denom1=1.0/(hfr.E(ik,0)+hfr.E(kk,0)-hfr.E(ak,0)-hfr.E(ck,0)),
+			       denom2=1.0/(hfr.E(jk,0)+hfr.E(kk,0)-hfr.E(bk,0)-hfr.E(ck,0)),
+			       denom3=1.0/(E+hfr.E(ak,0)+hfr.E(bk,0)+hfr.E(ck,0)-hfr.E(ik,0)-hfr.E(jk,0)-hfr.E(kk,0));
+			sumdiagram+=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	std::cout << "Z1G+0Z1: " << sumdiagram << std::endl;
+	sumdiagram=0.0;
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			//if(ki==ii||ki==ji) continue;
+			//if(ci==ai||ci==bi) continue;
+			double int1=ic.movsymphys(jk,kk,bk,ck,opsize),
+			       int2=ic.movsymphys(ak,ck,ik,kk,opsize);
+			double denom1=1.0/(hfr.E(ik,0)+hfr.E(kk,0)-hfr.E(ak,0)-hfr.E(ck,0)),
+			       denom2=1.0/(hfr.E(jk,0)+hfr.E(kk,0)-hfr.E(bk,0)-hfr.E(ck,0)),
+			       denom3=1.0/(-E+hfr.E(ck,0)-hfr.E(kk,0));
+			sumdiagram+=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	std::cout << "Z1G-0Z1: " << sumdiagram << std::endl;
+	sumdiagram=0.0;
+	double insize=0.0;
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			double int1=ic.movsymphys(ki,ai,ci,ii,opsize),
+			       int2=ic.movsymphys(ji,ci,bi,ki,opsize);
+			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)-hfr.E(kk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
+			sumdiagram+=int1*int2*(denom1*denom2*denom3);
+			insize+=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	std::cout << insize << std::endl;
+	insize=0.0;
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+			if(ki==ii||ki==ji) continue;
+			if(ci==ai||ci==bi) continue;
+
+			double int1=ic.movsymphys(ji,ki,bi,ci,opsize),
+			       int2=ic.movsymphys(ai,ci,ii,ki,opsize);
+			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(bk,0)+hfr.E(ak,0)-hfr.E(kk,0)-hfr.E(ik,0)-hfr.E(jk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
+			sumdiagram+=int1*int2*(denom1*denom2*denom3);
+			insize+=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	std::cout << insize << std::endl;
+	insize=0.0;
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			if(ki==ii||ci==bi) continue;
+
+			double int1=ic.movsymphys(ki,ai,bi,ci,opsize),
+			       int2=ic.movsymphys(ji,ci,ki,ii,opsize);
+			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(bk,0)-hfr.E(kk,0)-hfr.E(ik,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
+			sumdiagram-=int1*int2*(denom1*denom2*denom3);
+			insize-=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	std::cout << insize << std::endl;
+	insize=0.0;
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+			
+			if(ki==ji||ci==ai) continue;
+
+			double int1=ic.movsymphys(ji,ki,ci,ii,opsize),
+			       int2=ic.movsymphys(ci,ai,bi,ki,opsize);
+			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(ak,0)-hfr.E(kk,0)-hfr.E(jk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
+			sumdiagram-=int1*int2*(denom1*denom2*denom3);
+			insize-=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	std::cout << insize << std::endl;
+	insize=0.0;
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+		for(int d = 0; d < hfr.phlist[1].size();d++){
+			int ci=hfr.phlist[1][c],di=hfr.phlist[1][d];
+			int ck=ci%opsize,dk=di%opsize;
+					
+			double int1=ic.movsymphys(ji,ai,ci,di,opsize),
+			       int2=ic.movsymphys(ci,di,bi,ii,opsize);
+			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(dk,0)-hfr.E(ik,0)-hfr.E(jk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
+			sumdiagram+=0.5*int1*int2*(denom1*denom2*denom3);
+			insize+=0.5*int1*int2*(denom1*denom2*denom3);
+		}}
+	}
+	std::cout << insize << std::endl;
+	insize=0.0;
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+	for(int l = 0; l < hfr.phlist[0].size();l++){
+		int ki=hfr.phlist[0][k],li=hfr.phlist[0][l];
+		int kk=ki%opsize,lk=li%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			double int1=ic.movsymphys(ki,li,bi,ii,opsize),
+			       int2=ic.movsymphys(ji,ai,ki,li,opsize);
+			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
+			       denom2=1.0/(E+hfr.E(ak,0)+hfr.E(bk,0)-hfr.E(kk,0)-hfr.E(lk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
+			sumdiagram+=0.5*int1*int2*(denom1*denom2*denom3);
+			insize+=0.5*int1*int2*(denom1*denom2*denom3);
+		}
+	}}
+	std::cout << insize << std::endl;
+	insize=0.0;
+
+	std::cout << "Z0G+2Z0: " << sumdiagram << std::endl;
+
+
+
+	/*
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			double int1=ic.movsymphys(ki,ai,ci,ii,opsize),
+			       int2=ic.movsymphys(ji,ci,bi,ki,opsize);
+			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)-hfr.E(kk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
+
+			sumdiagram+=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			double int1=ic.movsymphys(ki,ai,bi,ci,opsize),
+			       int2=ic.movsymphys(ji,ci,ki,ii,opsize);
+			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(bk,0)-hfr.E(kk,0)-hfr.E(ik,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
+
+			sumdiagram-=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			double int1=ic.movsymphys(ji,ki,ci,ii,opsize),
+			       int2=ic.movsymphys(ci,ai,bi,ki,opsize);
+			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(ak,0)-hfr.E(kk,0)-hfr.E(jk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
+
+			sumdiagram-=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+	for(int l = 0; l < hfr.phlist[0].size();l++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+		int li=hfr.phlist[0][l];
+		int lk=li%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			double int1=ic.movsymphys(ki,li,bi,ii,opsize),
+			       int2=ic.movsymphys(ji,ai,ki,li,opsize);
+			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
+			       denom2=1.0/(E+hfr.E(ak,0)+hfr.E(bk,0)-hfr.E(kk,0)-hfr.E(lk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
+
+			sumdiagram+=0.5*int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	}
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+
+			double int1=ic.movsymphys(ji,ki,bi,ci,opsize),
+			       int2=ic.movsymphys(ai,ci,ii,ki,opsize);
+			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
+			       denom2=1.0/(-E+hfr.E(ck,0)+hfr.E(bk,0)+hfr.E(ak,0)-hfr.E(kk,0)-hfr.E(ik,0)-hfr.E(jk,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
+
+			sumdiagram+=int1*int2*(denom1*denom2*denom3);
+		}
+	}
+	for(int k = 0; k < hfr.phlist[0].size();k++){
+		int ki=hfr.phlist[0][k];
+		int kk=ki%opsize;
+
+		for(int c = 0; c < hfr.phlist[1].size();c++){
+		for(int d = 0; d < hfr.phlist[1].size();d++){
+			int ci=hfr.phlist[1][c];
+			int ck=ci%opsize;
+			int di=hfr.phlist[1][d];
+			int dk=di%opsize;
+
+			double int1=ic.movsymphys(ji,ai,ci,di,opsize),
+			       int2=ic.movsymphys(ci,di,bi,ii,opsize);
+			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
+			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(dk,0)-hfr.E(jk,0)-hfr.E(ik,0)),
+			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
+
+			sumdiagram+=0.5*int1*int2*(denom1*denom2*denom3);
+		}
+		}
+	}
+	*/
+	
+	std::cout << sumdiagram << std::endl;
+	std::cout << greens[2](opk,opl)<<std::endl;
+	std::cout << sumdiagram-greens[2](opk,opl)<<std::endl;
+	
+	Matrix V = fcis.CIMat-fcis.H0;
+	Matrix E1m=Matrix::Identity(V.rows(),V.cols())*mbptr.energies[1];
+	Matrix G2test=fcis.Gm_p[0]*(V-E1m)*fcis.Gm_p[0]*(V-E1m)*fcis.Gm_p[0];
+	std::cout << (fcis.za[0].transpose()*G2test*fcis.za[0])(opk,opl)<<std::endl;
+
+	Matrix submat=fcis.Gm_p[0]*(V-E1m)*fcis.Gm_p[0]*fcis.za[0];
+	std::vector<int> nonzeroes;
+	for(int i = 0; i < fcis.za[0].rows(); i++){
+		if(std::abs(submat(i,opl))>0.0000000001){
+			//std::cout << i << " " << sm.printstrab(i) << " " << sm.printstrphab(i) << " " << submat(i,opl)<<std::endl;
+			nonzeroes.push_back(i);
+		}
+	}
+	
+	std::cout << "ATTEMPTING TO SORT:\n";
+	for(int i = 0; i < nonzeroes.size(); i++){
+		int lowest=i;
+		for(int j = i+1; j<nonzeroes.size();j++){
+			int lk=nonzeroes[lowest],jk=nonzeroes[j];
+			
+			std::vector<std::vector<int>> cla=sm.strph(lk%sm.strs.size(),true), clb=sm.strph(lk/sm.strs.size(),false);
+			std::vector<std::vector<int>> ja=sm.strph(jk%sm.strs.size(),true), jb=sm.strph(jk/sm.strs.size(),false);
+
+			int clen=cla[0].size()+clb[0].size();
+			int jen=ja[0].size()+jb[0].size();
+
+			if(jen<clen){ lowest=j; continue;}
+			if(clen<jen){continue;}
+				
+			int extent=jen;
+			int jext=0;
+			int cext=0;
+			for(int i = 0; i < ja[0].size();i++){
+				jext+=std::pow(hfr.nelec,i)*ja[0][i];
+			}
+			for(int i = 0; i < jb[0].size();i++){
+				jext+=std::pow(hfr.nelec,i+ja[0].size())*jb[0][i];
+			}
+			for(int i = 0; i < ja[1].size();i++){
+				jext+=std::pow(hfr.nelec,i+extent)*ja[1][i];
+			}
+			for(int i = 0; i < jb[1].size();i++){
+				jext+=std::pow(hfr.nelec,i+extent+ja[1].size())*jb[1][i];
+			}
+			for(int i = 0; i < cla[0].size();i++){
+				cext+=std::pow(hfr.nelec,i)*cla[0][i];
+			}
+			for(int i = 0; i < clb[0].size();i++){
+				cext+=std::pow(hfr.nelec,i+cla[0].size())*clb[0][i];
+			}
+			for(int i = 0; i < cla[1].size();i++){
+				cext+=std::pow(hfr.nelec,i+extent)*cla[1][i];
+			}
+			for(int i = 0; i < clb[1].size();i++){
+				cext+=std::pow(hfr.nelec,i+extent+cla[1].size())*clb[1][i];
+			}
+
+			if(jext<cext){
+				lowest=j;
+			}
+			
+		}
+		std::swap(nonzeroes[i],nonzeroes[lowest]);
+	}
+
+	for(int i = 0; i < nonzeroes.size(); i++){
+		std::cout << nonzeroes[i] << " " <<sm.printstrab(nonzeroes[i]) << " " << sm.printstrphab(nonzeroes[i])<<std::endl;
+	}
 
 	return 0;
 	/*
