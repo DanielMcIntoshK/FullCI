@@ -7,6 +7,14 @@
 int rfactorial(int n,int m=1);
 int choose(int n, int m);
 
+struct PHOp{
+	PHOp(): i{0},j{0}{}
+	PHOp(int a, int b): i{a},j{b}{}
+	int i,j;
+
+	PHOp adjoint(){return PHOp(j,i);}
+};
+
 struct StringMap{
 	std::vector<unsigned char*> strs;
 	int codeblklen;
@@ -53,6 +61,8 @@ double secondQuant2e(SlaterDet & sd1, SlaterDet & sd2, int,int,int,int,int,bool=
 
 bool checkOpperator(unsigned char *  str, int opblk, int opidx, bool anihilate);
 int countLower(unsigned char *  str, int blk, int idx);
+
+double opOnSlater(PHOp op, unsigned char * alpha, unsigned char * beta);
 
 #endif
 

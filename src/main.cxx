@@ -15,6 +15,8 @@
 #include "Greens.h"
 #include "LambdaDeriv.h"
 #include "PoleSearch.h"
+#include "Diagram.h"
+#include "SOPPA.h"
 
 int main(int argc, char** argv){
 	libint2::initialize();
@@ -61,10 +63,6 @@ int main(int argc, char** argv){
 
 	int N = hfr.C.rows();
 	SlaterDet::buildStrings(N,params.nelec/2);
-	std::cout << "DECODE TEST:\n";
-	for(int i =0; i < SlaterDet::codes.strs.size();i++){
-		std::cout << i << ": " << SlaterDet::decode(SlaterDet::codes.strs[i]) << std::endl;
-	}
 	RPASolver tdhfs(ic);
 	RPASolver::RPAResults tdhfr=tdhfs.RPACalc(hfr);
 	RPASolver::RPAResults tdhfr2=tdhfs.RPACalcSingTrip(hfr);
@@ -275,6 +273,19 @@ int main(int argc, char** argv){
 	std::cout << greens[1].rows() << " " << greens[1].cols() << " " << hfr.operators.size()<<std::endl;;
 	std::cout << "SELF ENERGY RECURSIVE\n"<<hfr.operators.size()<<std::endl;;
 	std::vector<Matrix> serecursive=gr.ComputeSelfEnergies(E,recursiveorder,hfr,greens);
+
+	for(int i = 1; i < senum.size() && i < serecursive.size(); i++){
+		Matrix diff=greens[i]-greensnum[i];
+		std::cout << "CHECKING SE " << i << std::endl;
+		for(int x = 0; x < diff.rows(); x++){
+			for(int y = 0; y < diff.cols(); y++){
+				if(std::abs(diff(x,y))>0.000000001){
+					std::cout << "DIFF ERROR: " << x << ", " << y << ": "<<diff(x,y)<<std::endl;	
+				}
+				
+			}
+		}
+	}
 	
 	int o1=3,o2=4;
 	std::cout << "G_("<<hfr.operators[o1].i<< " " <<hfr.operators[o1].j
@@ -430,540 +441,471 @@ int main(int argc, char** argv){
 		std::cout << i<<"th:\n"<<serecursive[i]<<std::endl<<std::endl;
 		seSum+=serecursive[i];
 		Matrix sepr=seSum;
-
-		/*
-		Matrix G0itemp=hfr.getIndependentG0i();
-		sepr=G0itemp-sepr;
-		gr.TransformEigen(sepr,hfr);
-
-		//std::cout << i << "th Eigen:\n" << sepr << std::endl << std::endl;
-
-		double max = 0.0;
-		int ri=0,ci=0;
-		//Matrix sumdiff=serecursive[i]-senum[i];
-		Matrix sumdiff=serecursive[i]-senum[i];
-		for(int r = 0; r < sumdiff.rows();r++){
-			for(int c = 0; c < sumdiff.cols();c++){
-				if(std::abs(sumdiff(r,c))>max){
-					max=std::abs(sumdiff(r,c));
-					ri=r;
-					ci=c;
-				}
-			}
-		}
-		std::cout << i << " " << max << " "<<ri<<" " << ci<<" "<<serecursive[i](ri,ci) << " " << senum[i](ri,ci)<< std::endl;
-		*/
 	}
 	std::cout << "SUM\n"<<seSum<<std::endl<<std::endl;
 
 	std::cout << "Full M\n" << Mfull <<std::endl<<std::endl;
 
-	std::cout << "GV TEST\n";
-	StringMap & sm = SlaterDet::codes;
-	for(int i = 0; i < sm.strs.size(); i++){
-		std::cout << i << " ";
-		for(int j = 0; j < sm.codeblklen; j++){
-			for(int k = 0; k < 8; k++){
-				if(k+8*j>=sm.norbs) break;
-
-				bool bon=sm.strs[i][j] &(1<<k);
-				if(bon) std::cout << "1";
-				else std::cout << "0";
-			}
-		}
-		std::cout << std::endl;
-	}
-	i = 3, j =4, a=5, b=6;
-	std::cout << "|0>G1<5|: TARGET: "<<-ic.movsym(i,a,j,b,sm.norbs)/(E*(E+hfr.E(a,0)+hfr.E(b,0)-hfr.E(i,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](0,5)<<std::endl;
-	i = 3, j =4, a=5, b=6;
-	std::cout << "|3>G1<2|: TARGET: "<<-ic.movsym(a,i,j,b,sm.norbs)/((E+hfr.E(a,0)-hfr.E(i,0))*(E+hfr.E(b,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](3,2)<<std::endl;
-	i = 4, j =4, a=5, b=6;
-	std::cout << "|1>G1<2|: TARGET: "<<-ic.movsym(a,i,j,b,sm.norbs)/((E+hfr.E(a,0)-hfr.E(j,0))*(E+hfr.E(b,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](1,2)<<std::endl;
-	i = 3, j =3, a=5, b=6;
-	double sumk=-ic.movsym(a,i,j,b,sm.norbs);
-	//for(int k = 0; k < hfr.phlist[0].size(); k++){
-	for(int k = 0; k < hfr.nelec; k++){
-		int ki = hfr.phlist[0][k];
-		if(ki==i)continue;
-		sumk+=-ic.movsym(a,ki,ki,b,sm.norbs);
-	}
-	std::cout <<sumk << std::endl;
-	std::cout << "|3>G1<4|: TARGET: "<<-ic.movsym(a,i,j,b,sm.norbs)/((E+hfr.E(a,0)-hfr.E(i,0))*(E+hfr.E(b,0)-hfr.E(j,0)))<<" ACTUAL: " << fcis.Gm_p[1](3,4)<<std::endl;
-
 	int opk=0, opl=3;
-	opk=3; opl=4;
-	std::cout << "OPP: " << opk << " " << hfr.operators[opk].i << " " << hfr.operators[opk].j << std::endl;
-	std::vector<int> valids;
-	for(int i = 0; i < fcis.za[1].rows(); i++){
-		int strcnt = sm.strs.size();
-		int alphaidx=i%strcnt, betaidx=i/strcnt;
-		unsigned char * alphacpy=sm.cpystrs[0],*betacpy=sm.cpystrs[1];
-		memcpy(alphacpy, sm.strs[alphaidx],sm.codeblklen);
-		memcpy(betacpy,sm.strs[betaidx],sm.codeblklen);
-		double sign = fcis.opOnSlater(hfr.operators[opk].adjoint(),alphacpy, betacpy);
+	//opk=3; opl=4;
+	opk=2; opl=6;
+//	opk=12;opl=16;
+//	opk=2; opl=16;
+	//opk=2; opl=2;
+	//opk=2; opl=3;
 
-		if(sign!=0.0)valids.push_back(i);
-	}
-
-	int singleexcite=-1;
-	std::cout << "OPP: " << opl << " " << hfr.operators[opl].i << " " << hfr.operators[opl].j << std::endl;
-	for(int i = 0; i < fcis.za[0].rows(); i++){
-		if(std::abs(fcis.za[0](i,opl))>0.0000000001){
-			std::cout << sm.printstrphab(i) << " " << sm.printstrab(i)<< " " << fcis.za[0](i,opl)<<std::endl;
-			singleexcite=i;
-		}
-	}
-
-	for(int i = 0; i < valids.size(); i++){
-		SlaterDet se=SlaterDet(singleexcite), vi=SlaterDet(valids[i]);
-		SlaterCompare scdet=compareSlaterDet(se,vi);
-
-		if(scdet.diff.size()<=4){
-			
-			std::string prstr=sm.printstrphab(valids[i]);
-			std::cout << prstr;
-
-			int loopcount=prstr.size()/4;
-			if(loopcount%4!=0)loopcount-=1;
-		       
-			for(int i = 0; i < 6-loopcount;i++){
-				std::cout << "\t";
+	for(int i =0; i < hfr.operators.size()/2; i++){
+		for(int j = i+1; j < hfr.operators.size()/2; j++){
+			if(hfr.operators[i].i == hfr.operators[j].i &&
+					std::abs(greens[2](i,j))>0.00000001){
+				std::cout << "POTENTIAL: " << i << " " << j << std::endl;
 			}
-			std::cout << sm.printstrab(valids[i]) << 
-				" " << fcis.za[1](valids[i],opk) << " " << scdet.diff.size() << std::endl;
 		}
 	}
-	std::cout << "12345678901234567890\n";
-	std::cout << "\ta\n";
-	std::cout << ic.movsymphys(5,12,2,9,sm.norbs)/(hfr.E(2,0)+hfr.E(9%7,0)-hfr.E(5,0)-hfr.E(12%7,0))<< std::endl;
-	std::cout << ic.movsymphys(12,5,2,9,sm.norbs)/(hfr.E(2,0)+hfr.E(9%7,0)-hfr.E(5,0)-hfr.E(12%7,0))<< std::endl;
-	double sumtest = 0.0;
-	//for(int i = 0; i < fcis.Gm_p[0].rows(); i++){
-	for(int i = 0; i < valids.size(); i++){
-		SlaterDet basese=SlaterDet(0);
-
-		SlaterDet se=SlaterDet(singleexcite), vi=SlaterDet(valids[i]);
-		SlaterCompare scdet=compareSlaterDet(se,vi);
-		SlaterCompare scdet1=compareSlaterDet(se,basese), scdet2 = compareSlaterDet(vi,basese);
-		
-		if(scdet.diff.size()<=4){
-
-			sumtest+=fcis.za[0](singleexcite,opl)*fcis.Gm_p[1](singleexcite,valids[i])*fcis.za[1](valids[i],opk);
-			//sumtest+=fcis.za[0](j,opk)*fcis.Gm_p[1](j,i)*fcis.za[1](i,opl);
-			//std::cout << sm.printstrphab(valids[i]) << " " <<fcis.za[0](singleexcite,opl) << " " << fcis.Gm_p[1](singleexcite,valids[i]) << " " 
-			//	<< fcis.za[1](valids[i],opk) << std::endl;
-		}
-	}
-	std::cout << sumtest << std::endl;
-	std::cout << (fcis.za[0].transpose()*fcis.Gm_p[1]*fcis.za[1])(opl,opk)<<std::endl;
-
-	std::cout << std::endl;
-	double sumdiagram=0.0;
+	
 	int opsize=hfr.norbs;
-	int ii=hfr.operators[opk].i,ai=hfr.operators[opk].j,
-	    ji=hfr.operators[opl].i,bi=hfr.operators[opl].j;
-	std::swap(ii,ji); std::swap(ai,bi);
+	int ii=hfr.operators[opl].i,ai=hfr.operators[opl].j,
+	    ji=hfr.operators[opk].i,bi=hfr.operators[opk].j;
 
 	int ik=ii%opsize,ak=ai%opsize,jk=ji%opsize,bk=bi%opsize;
 
-
+	std::cout << ii << " " << ai << " : " << ji << " " << bi << std::endl;
 	
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			//if(ki==ii||ki==ji) continue;
-			//if(ci==ai||ci==bi) continue;
-			double int1=ic.movsymphys(ci,bi,ji,ki,opsize),
-			       int2=ic.movsymphys(ii,ki,ci,ai,opsize);
-			double denom1=1.0/(hfr.E(jk,0)+hfr.E(kk,0)-hfr.E(ck,0)-hfr.E(bk,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(ak,0)+hfr.E(bk,0)-hfr.E(jk,0)-hfr.E(ik,0)-hfr.E(kk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
-
-			sumdiagram-=int1*int2*(denom1*denom2*denom3);
-		}
+	std::vector<int> irreduce;
+	//Z0G2Z0---------------------------------------
+	double ts=0.0;
+	std::vector<double> dgv;
+	Diagram dgtest(
+		std::vector<dnode>{{line(1,bi)},{line(0,ji),line(2)},{line(1),line(3,ai)},{line(2,ii)}},
+		std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+	double stest=dgtest.sumfull(&ic,E);
+	irreduce.push_back(dgv.size());
+	dgv.push_back(stest);
+	ts+=stest;
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(2,bi)},{line(3,ai),line(2)},{line(1),line(0,ji)},{line(1,ii)}},
+		std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	irreduce.push_back(dgv.size());
+	dgv.push_back(stest);
+	ts+=stest;
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(2,bi)},{line(0,ji),line(3,ai)},{line(1),line(1)},{line(2,ii)}},
+		std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	dgv.push_back(stest);
+	ts+=stest;
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(1,bi)},{line(2),line(2)},{line(0,ji),line(3,ai)},{line(1,ii)}},
+		std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	dgv.push_back(stest);
+	ts+=stest;
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(1,bi)},{line(2),line(3,ai)},{line(0,ji),line(1)},{line(2,ii)}},
+		std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	dgv.push_back(stest);
+	ts+=stest;
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(2,bi)},{line(2),line(0,ji)},{line(3,ai),line(1)},{line(1,ii)}},
+		std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	dgv.push_back(stest);
+	ts+=stest;
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	if(hfr.operators[opk].j==hfr.operators[opl].j){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(3,ai)},{line(2),line(0,ji)},{line(1),line(1)},{line(2,ii)}},
+			std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(stest);
+		ts+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+		dgtest=Diagram(
+			std::vector<dnode>{{line(3,ai)},{line(2),line(2)},{line(1),line(0,ji)},{line(1,ii)}},
+			std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(stest);
+		ts+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
 	}
-	std::cout << "Z1G1Z0: " << sumdiagram << std::endl;
-	sumdiagram=0.0;
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			//if(ki==ii||ki==ji) continue;
-			//if(ci==ai||ci==bi) continue;
-			double int1=ic.movsymphys(ci,bi,ji,ki,opsize),
-			       int2=ic.movsymphys(ii,ki,ci,ai,opsize);
-			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
-			       denom2=1.0/(E+hfr.E(ak,0)+hfr.E(bk,0)+hfr.E(ck,0)-hfr.E(ik,0)-hfr.E(jk,0)-hfr.E(kk,0)),
-				denom3=1.0/(hfr.E(ik,0)+hfr.E(kk,0)-hfr.E(ck,0)-hfr.E(ak,0));
-
-			sumdiagram-=int1*int2*(denom1*denom2*denom3);
-		}
+	if(hfr.operators[opk].i==hfr.operators[opl].i){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(1,ai)},{line(2),line(2)},{line(1),line(3,bi)},{line(0,ii)}},
+			std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(stest);
+		ts+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+		dgtest=Diagram(
+			std::vector<dnode>{{line(2,ai)},{line(2),line(3,bi)},{line(1),line(1)},{line(0,ii)}},
+			std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(stest);
+		ts+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
 	}
-	std::cout << "Z0G1Z1: " << sumdiagram << std::endl;
-	sumdiagram=0.0;
+	if((hfr.operators[opk].j==hfr.operators[opl].j)&&
+		(hfr.operators[opk].i==hfr.operators[opl].i)){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(3,ai)},{line(2),line(2)},{line(1),line(1)},{line(0,ii)}},
+			std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,true)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(stest);
+		ts+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+		dgtest=Diagram(
+			std::vector<dnode>{{line(1),line(1)},{line(0),line(0)}},
+			std::vector<resolvent>{resolvent(0,false)}, hfr);
+		double ngv=dgtest.sumfull(&ic,E);
+		double denomsq=1.0/(E+hfr.E(ai%hfr.norbs,0)-hfr.E(ii%hfr.norbs,0));
+		stest=ngv*denomsq*denomsq;
+		dgv.push_back(stest);
+		ts+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+
+	}
+	double z0g2z0sum=ts;
+	std::cout << "Z0G2Z0: " << ts << std::endl;
+	//Z0G1Z1-----------------------------------------------------
+	double z0g1z1sum=0.0;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(3,ai),line(2)},{line(2,bi)},{line(0),line(1,ji)},{line(0,ii)}},
+		std::vector<resolvent>{resolvent(0,false),resolvent(1,true),resolvent(2,true)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	irreduce.push_back(dgv.size());
+	dgv.push_back(-stest);
+	ts-=stest;
+	z0g1z1sum-=stest;
+	if(hfr.operators[opk].j==hfr.operators[opl].j){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(2),line(2)},{line(3,ai)},{line(0),line(1,ji)},{line(0,ii)}},
+			std::vector<resolvent>{resolvent(0,false),resolvent(1,true),resolvent(2,true)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(-stest);
+		ts-=stest;
+		z0g1z1sum-=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	if(hfr.operators[opk].i==hfr.operators[opl].i){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(2),line(3,ai)},{line(2,bi)},{line(0),line(0)},{line(1,ii)}},
+			std::vector<resolvent>{resolvent(0,false),resolvent(1,true),resolvent(2,true)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(-stest);
+		ts-=stest;
+		z0g1z1sum-=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	if((hfr.operators[opk].j==hfr.operators[opl].j)&&
+		(hfr.operators[opk].i==hfr.operators[opl].i)){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(2),line(2)},{line(3,ai)},{line(0),line(0)},{line(1,ii)}},
+			std::vector<resolvent>{resolvent(0,false),resolvent(1,true),resolvent(2,true)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(-stest);
+		ts-=stest;
+		z0g1z1sum-=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	std::cout << "Z0G1Z1: " << z0g1z1sum << std::endl;
+	//Z1G0Z1+----------------------------------------------
+	double z1g0z1psum=0.0;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(2,ai),line(3)},{line(3,bi)},{line(0,ii)},{line(0),line(1,ji)}},
+		std::vector<resolvent>{resolvent(0,false),resolvent(1,true),resolvent(2,false)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	irreduce.push_back(dgv.size());
+	dgv.push_back(stest);
+	ts+=stest;
+	z1g0z1psum+=stest;
+	if(hfr.operators[opk].j==hfr.operators[opl].j){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(3),line(3)},{line(2,ai)},{line(0,ji)},{line(0),line(1,ii)}},
+			std::vector<resolvent>{resolvent(0,false),resolvent(1,true),resolvent(2,false)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(stest);
+		ts+=stest;
+		z1g0z1psum+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	if(hfr.operators[opk].i==hfr.operators[opl].i){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(2,bi),line(3)},{line(3,ai)},{line(1,ii)},{line(0),line(0)}},
+			std::vector<resolvent>{resolvent(0,false),resolvent(1,true),resolvent(2,false)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(stest);
+		ts+=stest;
+		z1g0z1psum+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	if((hfr.operators[opk].j==hfr.operators[opl].j)&&
+		(hfr.operators[opk].i==hfr.operators[opl].i)){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(3),line(3)},{line(2,ai)},{line(1,ii)},{line(0),line(0)}},
+			std::vector<resolvent>{resolvent(0,false),resolvent(1,true),resolvent(2,false)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(stest);
+		ts+=stest;
+		z1g0z1psum+=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	std::cout << "Z1G0+Z1: " << z1g0z1psum << std::endl;
+	//Z1G0Z1- -----------------------------------------------
+	double z1g0z1nsum=0.0;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(1,ai),line(3)},{line(0,ii)},{line(3,bi)},{line(0),line(2,ji)}},
+		std::vector<resolvent>{resolvent(0,false),resolvent(1,true,true),resolvent(2,false)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	irreduce.push_back(dgv.size());
+	dgv.push_back(stest);
+	ts+=stest;
+	z1g0z1nsum+=stest;
+	std::cout << "Z1G0-Z1: " << z1g0z1nsum << std::endl;
+	//Z1G1Z0------------------------------------------
+	double z1g1z0sum=0.0;
+	dgtest=Diagram(
+		std::vector<dnode>{{line(3,bi)},{line(2,ai),line(3)},{line(1,ii)},{line(0,ji),line(1)}},
+		std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,false)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	std::cout << "TESTING GRAPH: " << stest << std::endl;
+	irreduce.push_back(dgv.size());
+	dgv.push_back(-stest);
+	ts-=stest;
+	z1g1z0sum-=stest;
+	if(hfr.operators[opk].j==hfr.operators[opl].j){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(2,ai)},{line(3),line(3)},{line(1,ii)},{line(1),line(0,ji)}},
+			std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,false)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(-stest);
+		ts-=stest;
+		z1g1z0sum-=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	if(hfr.operators[opk].i==hfr.operators[opl].i){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(3,bi)},{line(2,ai),line(3)},{line(0,ii)},{line(1),line(1)}},
+			std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,false)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(-stest);
+		ts-=stest;
+		z1g1z0sum-=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	if((hfr.operators[opk].j==hfr.operators[opl].j)&&
+		(hfr.operators[opk].i==hfr.operators[opl].i)){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(2,ai)},{line(3),line(3)},{line(0,ii)},{line(1),line(1)}},
+			std::vector<resolvent>{resolvent(0,true),resolvent(1,true),resolvent(2,false)},hfr);
+		stest=dgtest.sumfull(&ic,E);
+		dgv.push_back(-stest);
+		ts-=stest;
+		z1g1z0sum-=stest;
+		std::cout << "TESTING GRAPH: " << stest << std::endl;
+	}
+	std::cout << "Z1G1Z0: " << z1g1z0sum<<std::endl;
+
+	double denom1_n = E+hfr.E(hfr.operators[opk].j%hfr.norbs,0)-
+			hfr.E(hfr.operators[opk].i%hfr.norbs,0);
+	double denom2_n = E+hfr.E(hfr.operators[opl].j%hfr.norbs,0)-
+			hfr.E(hfr.operators[opl].i%hfr.norbs,0);
+	if((hfr.operators[opk].j==hfr.operators[opl].j)&&
+		(hfr.operators[opk].i==hfr.operators[opl].i)){
+		dgtest=Diagram(
+			std::vector<dnode>{{line(1),line(1)},{line(0),line(0)}},
+			std::vector<resolvent>{resolvent(0,false),resolvent(0,false)},hfr);
+		double renorm=dgtest.sumfull(&ic,E)/denom1_n;
+		ts-=renorm;
+		dgv.push_back(-ts);
+	}
+	std::cout << "GREENS: " << ts << " " << greens[2](opk,opl) <<" " << greensnum[2](opk,opl) << std::endl;
+	std::cout << "DIFF: " << greens[2](opk,opl)-greensnum[2](opk,opl) << std::endl;
+
+	dgtest=Diagram(
+		std::vector<dnode>{{line(2,bi)},{line(3,ai),line(2)},{line(1),line(0,ji)},{line(1,ii)}},
+		std::vector<resolvent>{
+			resolvent(0,true),resolvent(1,true,true,false,{ii,ji,ai,bi}),resolvent(2,true)},hfr);
+	stest=dgtest.sumfull(&ic,E);
+	ts+=stest;
 	
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			//if(ki==ii||ki==ji) continue;
-			//if(ci==ai||ci==bi) continue;
-			double int1=ic.movsymphys(ji,ki,bi,ci,opsize),
-			       int2=ic.movsymphys(ai,ci,ii,ki,opsize);
-			double denom1=1.0/(hfr.E(ik,0)+hfr.E(kk,0)-hfr.E(ak,0)-hfr.E(ck,0)),
-			       denom2=1.0/(hfr.E(jk,0)+hfr.E(kk,0)-hfr.E(bk,0)-hfr.E(ck,0)),
-			       denom3=1.0/(E+hfr.E(ak,0)+hfr.E(bk,0)+hfr.E(ck,0)-hfr.E(ik,0)-hfr.E(jk,0)-hfr.E(kk,0));
-			sumdiagram+=int1*int2*(denom1*denom2*denom3);
-		}
+	ts=0;
+	for(int i = 0; i < dgv.size(); i++){
+		ts+=dgv[i];
 	}
-	std::cout << "Z1G+0Z1: " << sumdiagram << std::endl;
-	sumdiagram=0.0;
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
+	std::cout << ts << std::endl;
 
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			//if(ki==ii||ki==ji) continue;
-			//if(ci==ai||ci==bi) continue;
-			double int1=ic.movsymphys(jk,kk,bk,ck,opsize),
-			       int2=ic.movsymphys(ak,ck,ik,kk,opsize);
-			double denom1=1.0/(hfr.E(ik,0)+hfr.E(kk,0)-hfr.E(ak,0)-hfr.E(ck,0)),
-			       denom2=1.0/(hfr.E(jk,0)+hfr.E(kk,0)-hfr.E(bk,0)-hfr.E(ck,0)),
-			       denom3=1.0/(-E+hfr.E(ck,0)-hfr.E(kk,0));
-			sumdiagram+=int1*int2*(denom1*denom2*denom3);
-		}
+	std::vector<Diagram> sedgs;
+	
+	sedgs=std::vector<Diagram>{
+		Diagram({{line(2,bi)},{line(0,ji),line(2)},{line(1),line(3,ai)},{line(1,ii)}},
+			{resolvent(1,true)},hfr),
+		Diagram({{line(1,bi)},{line(3,ai),line(2)},{line(1),line(0,ji)},{line(2,ii)}},
+			{resolvent(1,true)},hfr),
+		Diagram({{line(2,bi)},{line(3,ai),line(0,ji)},{line(1),line(1)},{line(2,ii)}},
+			{resolvent(1,true)},hfr),
+		Diagram({{line(1,bi)},{line(2),line(2)},{line(0,ji),line(3,ai)},{line(1,ii)}},
+			{resolvent(1,true)},hfr)
+		};
+	if(hfr.operators[opk].j==hfr.operators[opl].j){
+		sedgs.push_back(
+			Diagram({{line(3,ai)},{line(0,ji),line(2)},{line(1),line(1)},{line(2,ii)}},
+				{resolvent(1,true)},hfr));
+		sedgs.push_back(
+			Diagram({{line(3,ai)},{line(2),line(2)},{line(0,ji),line(1)},{line(1,ii)}},
+				{resolvent(1,true,false,true),
+				resolvent(1,false,false,false,{ai,ii}),
+				resolvent(1,false,false,false,{ai,ji})},hfr));
+		std::cout << sedgs.back().sumfull(&ic,E)<<std::endl;
 	}
-	std::cout << "Z1G-0Z1: " << sumdiagram << std::endl;
-	sumdiagram=0.0;
-	double insize=0.0;
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			double int1=ic.movsymphys(ki,ai,ci,ii,opsize),
-			       int2=ic.movsymphys(ji,ci,bi,ki,opsize);
-			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)-hfr.E(kk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
-			sumdiagram+=int1*int2*(denom1*denom2*denom3);
-			insize+=int1*int2*(denom1*denom2*denom3);
-		}
+	if(hfr.operators[opk].i==hfr.operators[opl].i){
+		sedgs.push_back(
+			Diagram({{line(1,bi)},{line(2),line(2)},{line(1),line(3,ai)},{line(0,ii)}},
+				{resolvent(1,true)},hfr));
+		sedgs.push_back(
+			Diagram({{line(2,bi)},{line(2),line(3,ai)},{line(1),line(1)},{line(0,ii)}},
+				{resolvent(1,true,false,true),
+				resolvent(1,false,false,false,{ai,ii}),
+				resolvent(1,false,false,false,{ai,ji})},hfr));
 	}
-	std::cout << insize << std::endl;
-	insize=0.0;
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
+	double extest=0.0, diff=0.0;
+	for(int k = 0; k < hfr.phlist[0].size(); k++){
+		int kop=hfr.phlist[0][k];
+		for(int c = 0; c < hfr.phlist[1].size(); c++){
+		for(int d = 0; d < hfr.phlist[1].size(); d++){
+			int cop=hfr.phlist[1][c];
+			int dop=hfr.phlist[1][d];
 
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-			if(ki==ii||ki==ji) continue;
-			if(ci==ai||ci==bi) continue;
+			double ints1=ic.movsymphys(ji,kop,cop,dop,hfr.norbs),
+			       ints2=ic.movsymphys(cop,dop,ii,kop,hfr.norbs);
 
-			double int1=ic.movsymphys(ji,ki,bi,ci,opsize),
-			       int2=ic.movsymphys(ai,ci,ii,ki,opsize);
-			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(bk,0)+hfr.E(ak,0)-hfr.E(kk,0)-hfr.E(ik,0)-hfr.E(jk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
-			sumdiagram+=int1*int2*(denom1*denom2*denom3);
-			insize+=int1*int2*(denom1*denom2*denom3);
-		}
-	}
-	std::cout << insize << std::endl;
-	insize=0.0;
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
+			double denom=-E-hfr.E(kop%hfr.norbs,0)-hfr.E(ai%hfr.norbs,0)
+				+hfr.E(cop%hfr.norbs,0)+hfr.E(dop%hfr.norbs,0);
 
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			if(ki==ii||ci==bi) continue;
-
-			double int1=ic.movsymphys(ki,ai,bi,ci,opsize),
-			       int2=ic.movsymphys(ji,ci,ki,ii,opsize);
-			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(bk,0)-hfr.E(kk,0)-hfr.E(ik,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
-			sumdiagram-=int1*int2*(denom1*denom2*denom3);
-			insize-=int1*int2*(denom1*denom2*denom3);
-		}
-	}
-	std::cout << insize << std::endl;
-	insize=0.0;
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-			
-			if(ki==ji||ci==ai) continue;
-
-			double int1=ic.movsymphys(ji,ki,ci,ii,opsize),
-			       int2=ic.movsymphys(ci,ai,bi,ki,opsize);
-			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(ak,0)-hfr.E(kk,0)-hfr.E(jk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
-			sumdiagram-=int1*int2*(denom1*denom2*denom3);
-			insize-=int1*int2*(denom1*denom2*denom3);
-		}
-	}
-	std::cout << insize << std::endl;
-	insize=0.0;
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-		for(int d = 0; d < hfr.phlist[1].size();d++){
-			int ci=hfr.phlist[1][c],di=hfr.phlist[1][d];
-			int ck=ci%opsize,dk=di%opsize;
-					
-			double int1=ic.movsymphys(ji,ai,ci,di,opsize),
-			       int2=ic.movsymphys(ci,di,bi,ii,opsize);
-			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(dk,0)-hfr.E(ik,0)-hfr.E(jk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
-			sumdiagram+=0.5*int1*int2*(denom1*denom2*denom3);
-			insize+=0.5*int1*int2*(denom1*denom2*denom3);
+			double eps1=hfr.E(ji%hfr.norbs,0)+hfr.E(kop%hfr.norbs)-
+				    hfr.E(cop%hfr.norbs,0)-hfr.E(dop%hfr.norbs,0),
+			       eps2=hfr.E(ii%hfr.norbs,0)+hfr.E(kop%hfr.norbs,0)-
+				    hfr.E(cop%hfr.norbs,0)-hfr.E(dop%hfr.norbs,0);
+			extest+=ints1*ints2/denom;
+			diff+=ints1*ints2/(eps1*eps2*denom);
 		}}
 	}
-	std::cout << insize << std::endl;
-	insize=0.0;
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-	for(int l = 0; l < hfr.phlist[0].size();l++){
-		int ki=hfr.phlist[0][k],li=hfr.phlist[0][l];
-		int kk=ki%opsize,lk=li%opsize;
+	double num=(E+hfr.E(ai%hfr.norbs,0)-hfr.E(ii%hfr.norbs,0))*
+		  (E+hfr.E(bi%hfr.norbs,0)-hfr.E(ji%hfr.norbs,0));
+	std::cout << sedgs[sedgs.size()-1].sumfull(&ic,E) << " " << -extest/2<< " "
+	       << sedgs[sedgs.size()-1].sumfull(&ic,E)+extest/2<< " " <<
+	       num*diff/2 << std::endl;
 
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
+	double smtestdiag=0.0;
+	for(int i = 0; i < sedgs.size(); i++){
+		smtestdiag+=sedgs[i].sumfull(&ic,E);
+	}
+	double sediff=serecursive[2](opk,opl)-smtestdiag;
+	std::cout << "SELFENERGY TEST: " << smtestdiag<< " " << serecursive[2](opk,opl)<<" "<<
+		serecursive[2](opk,opl)-smtestdiag << std::endl;
 
-			double int1=ic.movsymphys(ki,li,bi,ii,opsize),
-			       int2=ic.movsymphys(ji,ai,ki,li,opsize);
-			double denom1=1.0/(E+hfr.E(ak,0)-hfr.E(ik,0)),
-			       denom2=1.0/(E+hfr.E(ak,0)+hfr.E(bk,0)-hfr.E(kk,0)-hfr.E(lk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));;
-			sumdiagram+=0.5*int1*int2*(denom1*denom2*denom3);
-			insize+=0.5*int1*int2*(denom1*denom2*denom3);
+	opk=3; opl=4;
+	opk+=hfr.operators.size()/2;
+	ii=hfr.operators[opl].i,ai=hfr.operators[opl].j,
+	    ji=hfr.operators[opk].j,bi=hfr.operators[opk].i;
+	
+	sedgs=std::vector<Diagram>{
+		Diagram({{line(2,bi),line(1)},{line(0),line(3,ai)},{line(1,ji)},{line(0,ii)}},
+			{resolvent(0,false)},hfr),
+		Diagram({{line(1),line(1)},{line(3,ai),line(2,bi)},{line(0,ji)},{line(0,ii)}},
+			{resolvent(0,false)},hfr),
+		Diagram({{line(3,ai),line(2,bi)},{line(0),line(0)},{line(1,ji)},{line(1,ii)}},
+			{resolvent(0,false)},hfr),
+		Diagram({{line(3,ai),line(1)},{line(0),line(2,bi)},{line(0,ji)},{line(1,ii)}},
+			{resolvent(0,false)},hfr)
+		};
+
+	smtestdiag=0.0;
+	for(int i = 0; i < sedgs.size(); i++){
+		smtestdiag-=sedgs[i].sumfull(&ic,E);
+	}
+	std::cout << "SELFENERGY TEST: " << smtestdiag<< " " << serecursive[2](opk,opl)<<" "<<
+		serecursive[2](opk,opl)-smtestdiag << std::endl;
+	std::cout << senum[2](opk,opl)<<std::endl;
+	
+	std::cout << hfr.operators.size() << std::endl;
+	for(int i = 0; i < hfr.operators.size(); i++){
+		std::cout << i<< " "<<hfr.operators[i].i << " " << hfr.operators[i].j<<std::endl;
+	}
+
+	Matrix se2test=Matrix(senum[2].rows(), senum[2].cols());
+	Matrix se4test=Matrix(senum[2].rows(), senum[2].cols());
+	for(int i = 0; i < se2test.rows(); i++){
+	for(int j = 0; j < se2test.cols(); j++){
+		se2test(i,j)=0.0;
+		se4test(i,j)=0.0;
+
+		int ii=hfr.operators[i].i,ai=hfr.operators[i].j,
+	    		ji=hfr.operators[j].i,bi=hfr.operators[j].j;
+		bool over=i>=(se2test.rows()/2);
+		if(over){
+			std::swap(ii,ji);
+			std::swap(ai,bi);
+			continue;
+		}
+		if(ai==bi){
+			Diagram dg=Diagram(
+				{{line(3,ai)},{line(2),line(2)},{line(0,ji),line(1)},{line(1,ii)}},
+				{resolvent(1,true,over,true),
+				resolvent(1,false,over,false,{ai,ii}),
+				resolvent(1,false,over,false,{ai,ji})},hfr);
+			se2test(i,j)+=dg.sumfull(&ic,E);
+		}
+		if(ii==ji){
+			Diagram dg=Diagram(
+				{{line(2,bi)},{line(2),line(3,ai)},{line(1),line(1)},{line(0,ii)}},
+				{resolvent(1,true,over,true),
+				resolvent(1,false,over,false,{ai,ii}),
+				resolvent(1,false,over,false,{bi,ii})},hfr);
+			se2test(i,j)+=dg.sumfull(&ic,E);
+		}
+		
+		if(i==3&&j==6){
+			std::cout << ii << " " << ji << " " << ai << " " << bi << std::endl;
+		Diagram dg=Diagram(
+			{{line(2,bi)},{line(5,ai),line(2)},{line(1),line(1)},{line(4),line(4)},
+			{line(0,ji),line(3)},{line(3,ii)}},
+			{resolvent(1,false,false,false,{ji,bi}),
+			resolvent(2,true,false,false),
+			resolvent(3,false,false,false,{ii,ai})},hfr);
+		std::cout << "MULT: " << dg.getmultiplicity() << std::endl;
+		se4test(i,j)+=dg.sumfull(&ic,E);
+		dg=Diagram(
+			{{line(4,bi)},{line(2),line(2)},{line(1),line(0,ji)},{line(4),line(5,ai)},
+			{line(3),line(3)},{line(1,ii)}},
+			{resolvent(1,false,false,false,{ji,bi}),
+			resolvent(2,true,false,false),
+			resolvent(3,false,false,false,{ii,ai})},hfr);
+		se4test(i,j)+=dg.sumfull(&ic,E);
 		}
 	}}
-	std::cout << insize << std::endl;
-	insize=0.0;
+	std::cout << "G0: " << std::endl << greens[0] << std::endl<<std::endl;
+	std::cout << "JUST PSUEDO: " << std::endl << se2test << std::endl<<std::endl;
+	std::cout << "REDUCABLE 4th: " << std::endl << se2test*greens[0]*se2test << std::endl<<std::endl;
+	//std::cout << "REDUCABLE 4th: " << std::endl << se2test*greens[0] << std::endl;
+	std::cout << "4th order S: " <<std::endl<<se4test<<std::endl;
 
-	std::cout << "Z0G+2Z0: " << sumdiagram << std::endl;
+	//std::cout << "SOPPA TEST:\n";
+	//SOPPASolver soppasolve(hfr, &ic);
+	//Matrix foppa=soppasolve.FOPPA(E);
+	//Matrix soppa=soppasolve.SOPPA(E);
+	//std::cout << foppa << std::endl <<std::endl;
 
-
-
-	/*
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			double int1=ic.movsymphys(ki,ai,ci,ii,opsize),
-			       int2=ic.movsymphys(ji,ci,bi,ki,opsize);
-			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)-hfr.E(kk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
-
-			sumdiagram+=int1*int2*(denom1*denom2*denom3);
-		}
-	}
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			double int1=ic.movsymphys(ki,ai,bi,ci,opsize),
-			       int2=ic.movsymphys(ji,ci,ki,ii,opsize);
-			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(bk,0)-hfr.E(kk,0)-hfr.E(ik,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
-
-			sumdiagram-=int1*int2*(denom1*denom2*denom3);
-		}
-	}
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			double int1=ic.movsymphys(ji,ki,ci,ii,opsize),
-			       int2=ic.movsymphys(ci,ai,bi,ki,opsize);
-			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(ak,0)-hfr.E(kk,0)-hfr.E(jk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
-
-			sumdiagram-=int1*int2*(denom1*denom2*denom3);
-		}
-	}
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-	for(int l = 0; l < hfr.phlist[0].size();l++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-		int li=hfr.phlist[0][l];
-		int lk=li%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			double int1=ic.movsymphys(ki,li,bi,ii,opsize),
-			       int2=ic.movsymphys(ji,ai,ki,li,opsize);
-			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
-			       denom2=1.0/(E+hfr.E(ak,0)+hfr.E(bk,0)-hfr.E(kk,0)-hfr.E(lk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
-
-			sumdiagram+=0.5*int1*int2*(denom1*denom2*denom3);
-		}
-	}
-	}
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-
-			double int1=ic.movsymphys(ji,ki,bi,ci,opsize),
-			       int2=ic.movsymphys(ai,ci,ii,ki,opsize);
-			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
-			       denom2=1.0/(-E+hfr.E(ck,0)+hfr.E(bk,0)+hfr.E(ak,0)-hfr.E(kk,0)-hfr.E(ik,0)-hfr.E(jk,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
-
-			sumdiagram+=int1*int2*(denom1*denom2*denom3);
-		}
-	}
-	for(int k = 0; k < hfr.phlist[0].size();k++){
-		int ki=hfr.phlist[0][k];
-		int kk=ki%opsize;
-
-		for(int c = 0; c < hfr.phlist[1].size();c++){
-		for(int d = 0; d < hfr.phlist[1].size();d++){
-			int ci=hfr.phlist[1][c];
-			int ck=ci%opsize;
-			int di=hfr.phlist[1][d];
-			int dk=di%opsize;
-
-			double int1=ic.movsymphys(ji,ai,ci,di,opsize),
-			       int2=ic.movsymphys(ci,di,bi,ii,opsize);
-			double denom1=1.0/(E-hfr.E(ik,0)+hfr.E(ak,0)),
-			       denom2=1.0/(E+hfr.E(ck,0)+hfr.E(dk,0)-hfr.E(jk,0)-hfr.E(ik,0)),
-			       denom3=1.0/(E+hfr.E(bk,0)-hfr.E(jk,0));
-
-			sumdiagram+=0.5*int1*int2*(denom1*denom2*denom3);
-		}
-		}
-	}
-	*/
-	
-	std::cout << sumdiagram << std::endl;
-	std::cout << greens[2](opk,opl)<<std::endl;
-	std::cout << sumdiagram-greens[2](opk,opl)<<std::endl;
-	
-	Matrix V = fcis.CIMat-fcis.H0;
-	Matrix E1m=Matrix::Identity(V.rows(),V.cols())*mbptr.energies[1];
-	Matrix G2test=fcis.Gm_p[0]*(V-E1m)*fcis.Gm_p[0]*(V-E1m)*fcis.Gm_p[0];
-	std::cout << (fcis.za[0].transpose()*G2test*fcis.za[0])(opk,opl)<<std::endl;
-
-	Matrix submat=fcis.Gm_p[0]*(V-E1m)*fcis.Gm_p[0]*fcis.za[0];
-	std::vector<int> nonzeroes;
-	for(int i = 0; i < fcis.za[0].rows(); i++){
-		if(std::abs(submat(i,opl))>0.0000000001){
-			//std::cout << i << " " << sm.printstrab(i) << " " << sm.printstrphab(i) << " " << submat(i,opl)<<std::endl;
-			nonzeroes.push_back(i);
-		}
-	}
-	
-	std::cout << "ATTEMPTING TO SORT:\n";
-	for(int i = 0; i < nonzeroes.size(); i++){
-		int lowest=i;
-		for(int j = i+1; j<nonzeroes.size();j++){
-			int lk=nonzeroes[lowest],jk=nonzeroes[j];
-			
-			std::vector<std::vector<int>> cla=sm.strph(lk%sm.strs.size(),true), clb=sm.strph(lk/sm.strs.size(),false);
-			std::vector<std::vector<int>> ja=sm.strph(jk%sm.strs.size(),true), jb=sm.strph(jk/sm.strs.size(),false);
-
-			int clen=cla[0].size()+clb[0].size();
-			int jen=ja[0].size()+jb[0].size();
-
-			if(jen<clen){ lowest=j; continue;}
-			if(clen<jen){continue;}
-				
-			int extent=jen;
-			int jext=0;
-			int cext=0;
-			for(int i = 0; i < ja[0].size();i++){
-				jext+=std::pow(hfr.nelec,i)*ja[0][i];
-			}
-			for(int i = 0; i < jb[0].size();i++){
-				jext+=std::pow(hfr.nelec,i+ja[0].size())*jb[0][i];
-			}
-			for(int i = 0; i < ja[1].size();i++){
-				jext+=std::pow(hfr.nelec,i+extent)*ja[1][i];
-			}
-			for(int i = 0; i < jb[1].size();i++){
-				jext+=std::pow(hfr.nelec,i+extent+ja[1].size())*jb[1][i];
-			}
-			for(int i = 0; i < cla[0].size();i++){
-				cext+=std::pow(hfr.nelec,i)*cla[0][i];
-			}
-			for(int i = 0; i < clb[0].size();i++){
-				cext+=std::pow(hfr.nelec,i+cla[0].size())*clb[0][i];
-			}
-			for(int i = 0; i < cla[1].size();i++){
-				cext+=std::pow(hfr.nelec,i+extent)*cla[1][i];
-			}
-			for(int i = 0; i < clb[1].size();i++){
-				cext+=std::pow(hfr.nelec,i+extent+cla[1].size())*clb[1][i];
-			}
-
-			if(jext<cext){
-				lowest=j;
-			}
-			
-		}
-		std::swap(nonzeroes[i],nonzeroes[lowest]);
-	}
-
-	for(int i = 0; i < nonzeroes.size(); i++){
-		std::cout << nonzeroes[i] << " " <<sm.printstrab(nonzeroes[i]) << " " << sm.printstrphab(nonzeroes[i])<<std::endl;
-	}
+	//std::cout << serecursive[1] << std::endl;
 
 	return 0;
 	/*
@@ -972,7 +914,7 @@ int main(int argc, char** argv){
 	for(int i = 0; i <= 5; i++){
 		gnum<< i << std::endl;
 		for(int p = 2; p <=6; p++){
-			for(int q = 2; q <=6; q++){
+			for(int q= 2; q <=6; q++){
 				gnum<<greensnum[i](p,q)<<" ";
 			}
 			gnum<<std::endl;

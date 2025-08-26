@@ -12,16 +12,9 @@
 
 #include "ModelParams.h"
 #include "Integrals.h"
+#include "SlaterDet.h"
 
 using namespace libint2;
-
-struct PHOp{
-	PHOp():i{0},j{0}{}
-	PHOp(int a, int b):i{a},j{b}{}
-	int i,j;
-
-	PHOp adjoint(){return PHOp(j,i);}
-};
 
 //Exactly what it says on the tin
 //Class used for solving Hartree Fock
@@ -77,6 +70,7 @@ public:
 		std::vector<double> EE;
 		std::vector<double> sing;
 		std::vector<double> trip;
+		Matrix A,B;
 	};
 	struct HRPAResults{
 		std::vector<double> EE;

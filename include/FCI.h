@@ -44,7 +44,7 @@ class FullCISolver{
 		double secondQuantMatel2e(SlaterDet & s1, SlaterDet & s2,SlaterCompare & sc);
 
 	//private:
-		double  opOnSlater(PHOp op, unsigned char * alpha, unsigned char * beta);
+		//double  opOnSlater(PHOp op, unsigned char * alpha, unsigned char * beta);
 
 		IntegralChugger * ints;
 		

@@ -324,12 +324,10 @@ RPASolver::RPAResults RPASolver::RPACalc(hfresults & hr,bool td){
 			}	
 		}
 	}
-	std::cout << "OPERATORS: \n";
-	for(int i = 0; i < operators.size();i++){
-		std::cout << operators[i].i << " " << operators[i].j << std::endl;
-	}
 
+	RPASolver::RPAResults tdhfr;
 	Matrix A=A0(), B=B0();
+	tdhfr.A=A; tdhfr.B=B;
 
 	Matrix ABare=A;
 	for(int i = 0;i < A.rows(); i++){
@@ -337,10 +335,9 @@ RPASolver::RPAResults RPASolver::RPACalc(hfresults & hr,bool td){
 		int c=operators[i].j%sm.norbs;
 		ABare(i,i)-=hfr.E(c,0)-hfr.E(k,0);
 	}
-	std::cout << "AMATRIX:\n" << ABare << std::endl << std::endl << "BMATRIX:\n"<<B << std::endl << std::endl;
+	//std::cout << "AMATRIX:\n" << ABare << std::endl << std::endl << "BMATRIX:\n"<<B << std::endl << std::endl;
 
 
-	RPASolver::RPAResults tdhfr;
 	if(!td){
 		Eigen::EigenSolver<Matrix> eigen_solver((A-B)*(A+B));
 		std::vector<double> vals;
@@ -373,12 +370,6 @@ RPASolver::RPAResults RPASolver::RPACalcSingTrip(hfresults & hr, bool TD){
 			operators.push_back(PHOp(i,r));
 		}	
 	}
-	/*
-	std::cout << "OPERATORS: \n";
-	for(int i = 0; i < operators.size();i++){
-		std::cout << i << " "<<operators[i].i << " " << operators[i].j << " " << decode(operators[i].i,operators[i].j)<<std::endl;
-	}
-	*/
 
 	RPASolver::RPAResults tdhfr;
 
@@ -505,17 +496,13 @@ Matrix RPASolver::A0(){
 	Matrix A(operators.size(),operators.size());
 	for(int r = 0; r < operators.size(); r++){
 		for(int c = 0; c < operators.size(); c++){
-			int i=operators[r].i%sm.norbs,
-			    a=operators[r].j%sm.norbs,
-			    j=operators[c].i%sm.norbs,
-			    b=operators[c].j%sm.norbs;
+			int i=operators[r].i,
+			    a=operators[r].j,
+			    j=operators[c].i,
+			    b=operators[c].j;
 
-			int ispin=operators[r].i/sm.norbs,
-			    jspin=operators[c].i/sm.norbs;
-
-			A(r,c)=(r==c)?(hfr.E(a,0)-hfr.E(i,0)):0.0;
-			A(r,c)+=ic.mov(a,i,j,b);
-			if(ispin==jspin) A(r,c)-=ic.mov(a,b,j,i);
+			A(r,c)=(r==c)?(hfr.E(a%sm.norbs,0)-hfr.E(i%sm.norbs,0)):0.0;
+			A(r,c)+=ic.movsymphys(a,j,i,b,sm.norbs);
 
 		}
 	}	
@@ -528,16 +515,14 @@ Matrix RPASolver::B0(){
 	Matrix B(operators.size(),operators.size());
 	for(int r = 0; r < operators.size(); r++){
 		for(int c = 0; c < operators.size(); c++){
-			int i=operators[r].i%sm.norbs,
-			    a=operators[r].j%sm.norbs,
-			    j=operators[c].i%sm.norbs,
-			    b=operators[c].j%sm.norbs;
+			int i=operators[r].i,
+			    a=operators[r].j,
+			    j=operators[c].i,
+			    b=operators[c].j;
 
-			int ispin=operators[r].i/sm.norbs,
-			    jspin=operators[c].i/sm.norbs;
-
-			B(r,c)=ic.mov(a,i,b,j);
-			if(ispin==jspin) B(r,c)-=ic.mov(a,j,b,i);
+			//B(r,c)=ic.mov(a,i,b,j);
+			//if(ispin==jspin) B(r,c)-=ic.mov(a,j,b,i);
+			B(r,c)=ic.movsymphys(a,b,i,j,sm.norbs);
 		}
 	}	
 	return B;

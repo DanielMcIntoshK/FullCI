@@ -210,56 +210,6 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 				if(index2!=-1) za[n](r,c)+=sign2*mbptr.wavefunctions[n](index2,0);
 			}
 		}
-		if(n==1){
-			std::cout << "Zs Non-Zero\n";
-			for(int r = 0; r < z[1].rows(); r++){
-			for(int c = 0; c < z[1].cols(); c++){
-				if(c!=3 && c!=4) continue;
-				if(std::abs(z[1](r,c)>0.000001)){
-					int alphaidx=r%strcnt,betaidx=r/strcnt;
-					
-					std::cout << r << " " << c << " ";
-					for(int k = 0; k < sm.norbs; k++){
-						int blk = k/8, bli = k%8;
-						if(sm.strs[alphaidx][blk] & (1<<bli)) std::cout << "1";
-						else std::cout << "0";
-					}
-					std::cout << " ";
-					for(int k = 0; k < sm.norbs; k++){
-						int blk = k/8, bli = k%8;
-						if(sm.strs[betaidx][blk] & (1<<bli)) std::cout << "1";
-						else std::cout << "0";
-					}
-					std::cout << " ";
-					std::cout << z[0](r,c)<<std::endl;
-				}
-			}
-			}
-			std::cout << "Zas Non-Zero\n";
-			for(int r = 0; r < za[1].rows(); r++){
-			for(int c = 0; c < za[1].cols(); c++){
-				if(c!=3 && c!=4) continue;
-				if(std::abs(za[1](r,c)>0.000001)){
-					int alphaidx=r%strcnt,betaidx=r/strcnt;
-					
-					std::cout << r << " " << c << " ";
-					for(int k = 0; k < sm.norbs; k++){
-						int blk = k/8, bli = k%8;
-						if(sm.strs[alphaidx][blk] & (1<<bli)) std::cout << "1";
-						else std::cout << "0";
-					}
-					std::cout << " ";
-					for(int k = 0; k < sm.norbs; k++){
-						int blk = k/8, bli = k%8;
-						if(sm.strs[betaidx][blk] & (1<<bli)) std::cout << "1";
-						else std::cout << "0";
-					}
-					std::cout << " ";
-					std::cout <<za[0](r,c)<<std::endl;
-				}
-			}
-			}
-		}
 		//std::cout << "CALCULATING D\n";
 		D[n]=0.0;
 		for(int i=0; i <= n; i++){
@@ -274,8 +224,9 @@ std::vector<Matrix> FullCISolver::recursivegreen(int order, double E, HartreeFoc
 				G_f=za[n-i-j].transpose()*Gm_p[j]*za[i];
 				G_r=z[n-i-j].transpose()*Gm_n[j]*z[i];
 				if(n==2){
-					std::cout << "Z" << i<<"G+"<<j<<"Z" <<n-i-j<<"_3,4 " << G_f(3,4)<<std::endl;
-					std::cout << "Z" << i<<"G-"<<j<<"Z" <<n-i-j<<"_3,4 " << G_r(4,3)<<std::endl;
+					int opk=3+20, opl=4;
+					std::cout << "Z" << i<<"G+"<<j<<"Z" <<n-i-j<<" " << G_f(opk,opl)<<std::endl;
+					std::cout << "Z" << i<<"G-"<<j<<"Z" <<n-i-j<<" " << G_r(opk,opl)<<std::endl;
 					std::cout << std::endl;
 				}
 				G_n[n]+=G_f+G_r.transpose();
@@ -429,6 +380,7 @@ void FullCISolver::cleanup(){
 	CIMat=Matrix(0,0);
 }
 
+/*
 double FullCISolver::opOnSlater(PHOp op,unsigned char * alpha, unsigned char * beta){
 	StringMap & sm = SlaterDet::codes;
 	
@@ -473,4 +425,5 @@ double FullCISolver::opOnSlater(PHOp op,unsigned char * alpha, unsigned char * b
 	//return sign*(SlaterDet::decode(alphacpy)+sm.strs.size()*SlaterDet::decode(betacpy));
 	return sign;
 }
+*/
 

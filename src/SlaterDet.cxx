@@ -32,6 +32,9 @@ std::string StringMap::strlit(int i){
 std::vector<std::vector<int>> StringMap::strph(int i, bool alpha){
 	std::vector<int> holes, parts;
 
+	if(alpha) i=i%strs.size();
+	else i=i/strs.size();
+
 	unsigned char * str=strs[i];
 	for(int block = 0; block < codeblklen; block++){
 		unsigned char c = str[block];
@@ -55,7 +58,7 @@ std::string StringMap::printstrab(int i){
 }
 
 std::string StringMap::printstrphab(int i){
-	std::vector<std::vector<int>> aph=strph(i%strs.size(), true), bph=strph(i/strs.size(),false);
+	std::vector<std::vector<int>> aph=strph(i, true), bph=strph(i,false);
 
 	std::string strtext="0_";
 	for(int i = 0; i < aph[0].size(); i++){
@@ -351,5 +354,47 @@ int countLower(unsigned char * str, int blk, int idx){
 		}
 	}
 	return cnt;
+}
+
+double opOnSlater(PHOp op, unsigned char * alpha, unsigned char * beta){
+	StringMap & sm = SlaterDet::codes;
+
+	double sign = 1.0;
+
+	int isalpha=(op.i/sm.norbs);
+
+	int ibase=op.i%sm.norbs,
+	    jbase=op.j%sm.norbs;
+
+	unsigned char * sd = (isalpha==0)?alpha:beta;
+
+	int iblock=ibase/8,ioff=ibase%8,
+	    jblock=jbase/8,joff=jbase%8;
+
+	if(sd[iblock]&(1<<ioff)){
+		int lowercount =(isalpha==0)?0:SlaterDet::codes.nelec;
+		for(int b = 0; b < ibase; b++){
+			if(sd[b/8]&(1<<(b%8))){
+				lowercount++;
+			}
+		}
+		sign*=(lowercount%2==0)?1.0:-1.0;
+		sd[iblock]=sd[iblock]^(1<<ioff);
+	}
+	else return 0.0;
+
+	if(!(sd[jblock]&(1<<joff))){
+		int lowercount=(isalpha==0)?0:SlaterDet::codes.nelec;
+		for(int b = 0; b < jbase; b++){
+			if(sd[b/8]&(1<<(b%8))){
+				lowercount++;
+			}
+		}
+		sign*=(lowercount%2==0)?1.0:-1.0;
+		sd[jblock]=sd[jblock]|(1<<joff);
+	}
+	else return 0.0;
+
+	return sign;
 }
 

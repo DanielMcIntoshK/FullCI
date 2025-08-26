@@ -61,26 +61,6 @@ std::vector<Matrix> GreensCalculator::ComputeSelfEnergies(double E, int order,
 	//std::cout << "GENERATING SELF ENERGIES\n";
 	Matrix G0i=hfr.getG0i(E);
 
-	/*
-	Matrix G0i=Matrix(operators.size(),operators.size());
-
-	for(int i = 0; i < G0i.rows();i++){
-		for(int j = 0; j < G0i.cols();j++){
-			if(i==j){
-				if((operators[i].j%sm.norbs > operators[i].i%sm.norbs)){
-					G0i(i,i)=E-(hfr.E(operators[i].j%sm.norbs,0)-hfr.E(operators[i].i%sm.norbs,0));
-				}
-				else {
-					G0i(i,i)=-(E-(hfr.E(operators[i].j%sm.norbs,0)-hfr.E(operators[i].i%sm.norbs,0)));
-				}
-			}
-			else{
-				G0i(i,j)=0.0;
-			}
-		}
-	}
-	*/
-	
 	std::vector<Matrix> Ms;
 	Ms.resize(order+1);
 	
@@ -102,39 +82,10 @@ Matrix GreensCalculator::ComputeSelfEnergy(double E, HartreeFockSolver::HFResult
 		std::cout << "SELF ENERGY OUTPUT\n";
 	}
 	
-	/*
-	Matrix G0init=G0i;
-	
-	Matrix G0(operators.size(), operators.size());
-	Matrix G0c(G0.rows(),G0.cols());
-	for(int i = 0; i < G0.rows();i++){
-		for(int j = 0;E j < G0.cols();j++){
-			if(i==j){
-				if((operators[i].j%sm.norbs > operators[i].i%sm.norbs)){
-					G0c(i,i)=1.0/(E-(hf.E(operators[i].j%sm.norbs,0)-hf.E(operators[i].i%sm.norbs,0)));
-					G0(i,i)=G0c(i,i);
-				}
-				else {
-					G0c(i,i)=-1.0/(E-(hf.E(operators[i].j%sm.norbs,0)-hf.E(operators[i].i%sm.norbs,0)));
-					G0(i,i)=G0c(i,i);
-				}
-				if(verbose) std::cout << i << " "<<operators[i].i <<" "<< operators[i].j<< " " << hf.E(operators[i].i%sm.norbs,0) << " " << hf.E(operators[i].j%sm.norbs,0)<<" "<<G0c(i,i)<<std::endl;  
-			}
-			else{
-				G0c(i,j)=0.0;
-				G0(i,j)=0.0;
-			}
-		}
-	}
-	G0i=G0c;
-	for(int i = 0; i < G0c.rows();i++) G0i(i,i)=1.0/G0i(i,i);
-	*/
 	Matrix G0i=hf.getG0i(E);
 
-	//Eigen::FullPivLU<Matrix> lu(G-G0+G0c);
 	Eigen::FullPivLU<Matrix> lu(G);
 	Matrix inverse=lu.inverse();
-	//G0i=Matrix::Identity(operators.size(),operators.size())*E-G0c;
 
 	return G0i-inverse;
 }
@@ -156,19 +107,7 @@ void GreensCalculator::TransformEigen(Matrix & m, HartreeFockSolver::HFResults &
 Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fcir){
 	StringMap & sm = SlaterDet::codes;
 	
-	//std::vector<double> GreensCalculator::computeAvOc_Pure(Matrix state){
 	std::vector<double> oc=computeAvOc_Pure(fcir.eigenvectors.col(0));
-	/*operators.clear();
-	for(int s = 0; s < 2; s++){
-	for(int i = 0; i < sm.norbs; i++){
-		for(int j = 0; j < sm.norbs; j++){
-			//if(oc[i]>oc[j]){
-				manifold.push_back(PHOp(i+sm.norbs*s,j+sm.norbs*s));
-			//}
-		}}
-	}
-	*/
-
 
 	Matrix & evecs = fcir.eigenvectors;
 	Matrix & evals = fcir.eigenvalues;
@@ -186,8 +125,6 @@ Matrix GreensCalculator::buildProp_Smart(double E, FullCISolver::FCIResults & fc
 		double E0=evals(0,0), EM=evals(i,0);
 		Em[i]=1.0/(-E-E0+EM);
 		Ep[i]=1.0/(+E-E0+EM);
-		//Ep[i]=1.0/(E+w0M);
-		//Em[i]=1.0/(E-w0M);
 	}
 
 	Matrix prop(operators.size(),operators.size());
